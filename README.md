@@ -10,4 +10,7 @@ When you have activated the environment, use the following command to install al
 
 ### Testing CUDA is available on your device
 From cmd run the following: python tester.py check_cuda_availability
-If it says "Cuda is available on this device" you are good to go, otherwise you might have to install the CUDA toolkit: https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64&target_version=10&target_type=exe_local
+
+If it says "Cuda is available on this device" you are good to go, otherwise you might have to install the CUDA toolkit: https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64&target_version=10&target_type=exe_local 
+
+or try https://pytorch.org/get-started/locally/
