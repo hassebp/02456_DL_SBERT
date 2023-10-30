@@ -7,13 +7,13 @@ def check_cuda_availability():
     else: 
         return print('Cuda is not setup properly')
 
+
+
 def run_tests():
     parser = argparse.ArgumentParser(description='Run a specific function in the script.')
     
-    # Add an argument for the function name
+    # Add functions to be tested in the choices list
     parser.add_argument('function', choices=['check_cuda_availability'], help='Name of the function to run')
-
-    # Parse the command-line arguments
     args = parser.parse_args()
 
     # Call the specified function
