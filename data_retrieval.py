@@ -43,8 +43,6 @@ def get_article_links(start_year, end_year):
     
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            print(soup)
-            p.p
             articles = soup.find_all('a', {'class': 'title'})
             print(articles[0:10])
             p.p
@@ -55,7 +53,7 @@ def get_article_links(start_year, end_year):
 # Main function to initiate the scraping process
 def webscraping():
     # Insert url - this is just for testing 
-    return print(scrape_article('https://findit.dtu.dk/en/catalog/6230c6250f6bfb853b3f3d46'))
+    #return print(scrape_article('https://findit.dtu.dk/en/catalog/6230c6250f6bfb853b3f3d46'))
     
     start_year = 2018
     end_year = 2022
