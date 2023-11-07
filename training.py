@@ -48,18 +48,22 @@ def train_sbert(data, model_path='sbert_model', epochs=100, batch_size=32):
  
     # CosineSimilarityLoss from article
     train_loss = losses.CosineSimilarityLoss(model)
-
+    #train_loss = losses.TripletLoss(model)
+    
     # SBERT training loop
     
     model.train()
     total_loss = 0
     step =  hparams['step']
+    
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
     with tqdm(total=hparams['num_steps']) as pbar:
-        while hparams['step'] < hparams['num_steps']:
+        while step < hparams['num_steps']:
             for batch in train_loader:
               
                 sentences_batch = batch['sentences']
+              
                 # Ensure sentences_batch is a list of sentences
                 if not isinstance(sentences_batch, list):
                     sentences_batch = [sentences_batch]
@@ -69,12 +73,14 @@ def train_sbert(data, model_path='sbert_model', epochs=100, batch_size=32):
 
                 loss = train_loss(embeddings, labels_tensor)
                 
+                p.p
                 total_loss += loss.item()
                 loss.backward()
-
+                p.p
                 # Update model parameters
-                model.optimizer.step()
-                model.zero_grad()
+                optimizer.step()
+                optimizer.zero_grad()
+                
                 
                 step += 1
                 pbar.update(1)
