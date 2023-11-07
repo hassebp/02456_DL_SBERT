@@ -9,12 +9,13 @@ from sentence_transformers import SentenceTransformer
 import numpy
 from data_loader import load_json_data
 from tqdm import tqdm
+from matplotlib import pyplot
 
 # Sample dataset class
 class SentenceDataset(Dataset):
     def __init__(self, data, bert_model, tokenizer, max_length=128):
-        self.sentences = list(map(lambda data: data.short_description, data))[:100]
-        self.url = list(map(lambda data: data.link, data))[:100]
+        self.sentences = list(map(lambda data: data.short_description, data))[:10000]
+        self.url = list(map(lambda data: data.link, data))[:10000]
         self.bert_model = bert_model
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -56,15 +57,24 @@ class SentenceDataset(Dataset):
 class SiameseNetwork(nn.Module):
     def __init__(self, embedding_size):
         super(SiameseNetwork, self).__init__()
+        pooling_size = 64
         self.embedding_size = embedding_size
-        self.fc = nn.Linear(self.embedding_size, 128)
-    
+        self.fc = nn.Linear(self.embedding_size + pooling_size, 128)
+        self.pooling = nn.AdaptiveMaxPool1d(pooling_size)
       
 
-    def forward(self, x1, x2):
-        x1 = x1.to(self.fc.weight.dtype)
-        x2 = x2.to(self.fc.weight.dtype)
-      
+    def forward(self, input1, att1, input2, att2):
+        input1 = input1.to(self.fc.weight.dtype)
+        input2 = input2.to(self.fc.weight.dtype)
+        att1 = att1.to(self.fc.weight.dtype)
+        att2 = att2.to(self.fc.weight.dtype)
+        
+        att1 = self.pooling(att1)
+        att2 = self.pooling(att2)
+        
+        x1 = torch.cat([input1, att1], dim=1)
+        x2 = torch.cat([input2, att2], dim=1)
+   
         # Apply linear transformation to both input tensors
         x1 = self.fc(x1)
         x2 = self.fc(x2)
@@ -104,24 +114,40 @@ def get_bert_embeddings(sentences, model, tokenizer):
 
 # Training loop
 def train_siamese_network(model, dataloader, criterion, optimizer, num_epochs=10):
-    model.train()
-    with tqdm() as pbar:
+    num_epochs = 100
+    epoch_losses = []
+    with tqdm(total=num_epochs*10000) as pbar:
         for epoch in range(num_epochs):
+            model.train()
+            batch_losses = []
             for batch in dataloader:
                 optimizer.zero_grad()
-                output1, output2 = model(batch['input_ids1'], batch['input_ids2'])
-             
+                output1, output2 = model(batch['input_ids1'],batch['attention_mask1'], batch['input_ids2'],batch['attention_mask2'])
+    
                 loss = criterion(output1, output2)  
     
                 loss.backward()
                 optimizer.step()
                 pbar.update(1)
+                batch_losses.append(loss.detach().cpu().item())
                 # Report
                 if pbar.n % 5 == 0:
                     loss = loss.detach().cpu().item()
                     pbar.set_description(f"epoch={epoch+1}, step={pbar.n}, loss={loss:.2f}")
-
+            avg_epoch_loss = sum(batch_losses) / len(batch_losses)
+            epoch_losses.append(avg_epoch_loss)
         torch.save(model.state_dict(), 'C:/Users/hasse/Skrivebord/02456_DL_SBERT/tester.pth')
+        
+        
+    # Plot the training curve
+    pyplot.plot(range(1, num_epochs + 1), epoch_losses, label='Average Loss')
+    pyplot.xlabel('Epoch')
+    pyplot.ylabel('Loss')
+    pyplot.title('Training Curve')
+    pyplot.grid()
+    pyplot.legend()
+    pyplot.show()
+        
 # Sample usage
 embedding_size = 768  # BERT hidden size
 bert_model = BertModel.from_pretrained('bert-base-uncased')
@@ -142,7 +168,7 @@ dataloader = DataLoader(dataset, shuffle=True, batch_size=1)
 
 # Modify the SiameseNetwork to accept BERT embeddings
 siamese_model = SiameseNetwork(embedding_size)
-criterion = CosineSimilarityLoss()
+criterion = ContrastiveLoss()
 optimizer = optim.Adam(siamese_model.parameters(), lr=0.001)
 
 
