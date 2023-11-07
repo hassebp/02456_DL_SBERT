@@ -66,8 +66,7 @@ class SiameseNetwork(nn.Module):
     def forward(self, x1, x2):
         x1 = x1.to(self.fc.weight.dtype)
         x2 = x2.to(self.fc.weight.dtype)
-        print(numpy.shape(x1),numpy.shape(x2))
-        
+      
         # Apply linear transformation to both input tensors
         x1 = self.fc(x1)
         x2 = self.pooling(x2)
@@ -89,6 +88,27 @@ class ContrastiveLoss(nn.Module):
 
         return loss_contrastive
 
+class CosineSimilarityLoss(nn.Module):
+    def __init__(self):
+        super(CosineSimilarityLoss, self).__init__()
+
+    def forward(self, output1, output2):
+        """
+        Compute the cosine similarity loss between two vectors.
+
+        Parameters:
+        - output1: Tensor of shape (batch_size, embedding_size) representing the first set of vectors.
+        - output2: Tensor of shape (batch_size, embedding_size) representing the second set of vectors.
+        - target: Tensor of shape (batch_size,) containing the target values (1 for similar, 0 for dissimilar).
+
+        Returns:
+        - loss: Scalar tensor representing the cosine similarity loss.
+        """
+        loss = F.cosine_similarity(output1, output2)
+        return loss
+ 
+
+
 # Helper function to get BERT embeddings
 def get_bert_embeddings(sentences, model, tokenizer):
     inputs = tokenizer(sentences, return_tensors='pt', padding=True, truncation=True, max_length=128)
@@ -103,9 +123,8 @@ def train_siamese_network(model, dataloader, criterion, optimizer, num_epochs=10
         for epoch in range(num_epochs):
             for batch in dataloader:
                 optimizer.zero_grad()
-                output1, output2 = model(torch.cat([batch['input_ids1'], batch['input_ids2']],dim=1),torch.cat([batch['attention_mask1'], batch['attention_mask2']],dim=1))
-                print(numpy.shape(output1),numpy.shape(output2))
-                p.p
+                output1, output2 = model(batch['input_ids1'], batch['input_ids2'])
+             
                 loss = criterion(output1, output2)  
     
                 loss.backward()
@@ -137,7 +156,7 @@ dataloader = DataLoader(dataset, shuffle=True, batch_size=1)
 
 # Modify the SiameseNetwork to accept BERT embeddings
 siamese_model = SiameseNetwork(embedding_size)
-criterion = ContrastiveLoss()
+criterion = CosineSimilarityLoss()
 optimizer = optim.Adam(siamese_model.parameters(), lr=0.001)
 
 
