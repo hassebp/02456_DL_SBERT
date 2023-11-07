@@ -32,7 +32,6 @@ class SentenceDataset(Dataset):
         embeddings1 = outputs1.last_hidden_state.mean(dim=1).squeeze(0)  # Average pooling
         url1 = self.url[idx]
 
-        # Randomly choose another sentence as a negative example
         idx2 = numpy.random.choice(len(self.sentences)) 
         idx2 if idx2 != idx else numpy.random.choice(len(self.sentences)) 
         sentence2 = self.sentences[idx2] 
@@ -59,8 +58,7 @@ class SiameseNetwork(nn.Module):
         super(SiameseNetwork, self).__init__()
         self.embedding_size = embedding_size
         self.fc = nn.Linear(self.embedding_size, 128)
-        self.pooling = nn.AdaptiveMaxPool1d(self.embedding_size*4)
-        self.fc2 = nn.Linear(self.embedding_size*4,128)
+    
       
 
     def forward(self, x1, x2):
@@ -69,8 +67,7 @@ class SiameseNetwork(nn.Module):
       
         # Apply linear transformation to both input tensors
         x1 = self.fc(x1)
-        x2 = self.pooling(x2)
-        x2 = self.fc2(x2)
+        x2 = self.fc(x2)
 
    
         return x1, x2
