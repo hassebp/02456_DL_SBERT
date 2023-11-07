@@ -93,17 +93,6 @@ class CosineSimilarityLoss(nn.Module):
         super(CosineSimilarityLoss, self).__init__()
 
     def forward(self, output1, output2):
-        """
-        Compute the cosine similarity loss between two vectors.
-
-        Parameters:
-        - output1: Tensor of shape (batch_size, embedding_size) representing the first set of vectors.
-        - output2: Tensor of shape (batch_size, embedding_size) representing the second set of vectors.
-        - target: Tensor of shape (batch_size,) containing the target values (1 for similar, 0 for dissimilar).
-
-        Returns:
-        - loss: Scalar tensor representing the cosine similarity loss.
-        """
         loss = F.cosine_similarity(output1, output2)
         return loss
  
