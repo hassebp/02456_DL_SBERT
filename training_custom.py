@@ -10,6 +10,7 @@ import numpy
 from data_loader import load_json_data
 from tqdm import tqdm
 from matplotlib import pyplot
+import os
 
 # Sample dataset class
 class SentenceDataset(Dataset):
@@ -161,7 +162,7 @@ sentences = [
     {"sentence": "bbbb", "url": "https://example.com/4"},
 ]
 
-data = load_json_data('C:/Users/hasse/Skrivebord/02456_DL_SBERT/News_Category_Dataset_v3.json')
+data = load_json_data(os.path.join(os.getcwd(),'News_Category_Dataset_v3.json'))
 
 dataset = SentenceDataset(data, bert_model, tokenizer)
 dataloader = DataLoader(dataset, shuffle=True, batch_size=1)
@@ -181,7 +182,7 @@ def train_model():
     
 def test_model():
     # Load the saved model
-    model_path = 'C:/Users/hasse/Skrivebord/02456_DL_SBERT/tester.pth'
+    model_path = os.path.join(os.getcwd(), 'tester.pth')
     loaded_model = torch.load(model_path)
 
     # New sentence
