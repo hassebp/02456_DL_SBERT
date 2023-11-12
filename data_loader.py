@@ -1,4 +1,4 @@
-import json
+import json, gzip, numpy, os
 from dataclasses import dataclass
 
 # Just to make sure its in the right format
@@ -11,7 +11,7 @@ class NewsArticle:
     authors: str
     date: str
     
-    
+
 def load_json_data(json_file_path):
     articles = []
     with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -20,6 +20,15 @@ def load_json_data(json_file_path):
             article = NewsArticle(**article_data)
             articles.append(article)
     return articles
+
+
+def test_msmarco():
+    file_path = os.path.join(os.getcwd(), 'msmarco-doctrain-top100.gz')
+
+    with gzip.open(file_path, 'rt') as file:
+        content = file.read()
+
+    print(numpy.shape(content))
 
 
 def test_data_loading():

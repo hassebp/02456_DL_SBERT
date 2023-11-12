@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader, Dataset
 from sentence_transformers import SentenceTransformer, SentencesDataset, losses
 from data_loader import load_json_data
 from tqdm import tqdm
+from datasets import ArticleDataset
 
 data = load_json_data('C:/Users/hasse/Skrivebord/02456_DL_SBERT/News_Category_Dataset_v3.json')
 
@@ -15,21 +16,6 @@ hparams = {
     'batch_size': 16,
     'num_workers': 1,
 }
-
-class ArticleDataset(Dataset):
-    def __init__(self, data, model):
-        self.sentences = [article.short_description for article in data]
-        self.labels = [article.headline for article in data]
-        self.model = model
-        self.label_map = {label: idx for idx, label in enumerate(set(self.labels))}
-        
-    def __len__(self):
-        return len(self.sentences)
-
-    def __getitem__(self, idx):
-        sentence = self.sentences[idx]
-        label = self.labels[idx]
-        return {'sentence': sentence, 'label': self.label_map[label]}
 
 def collate_batch(batch):
     sentences = [sample['sentence'] for sample in batch]
