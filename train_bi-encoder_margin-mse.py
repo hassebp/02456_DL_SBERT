@@ -142,7 +142,7 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
         if max_passages > 0 and len(train_queries) >= max_passages:
             break
         data = json.loads(line)
-
+        
         #Get the positive passage ids
         pos_pids = data['pos']
 
@@ -170,6 +170,8 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
 
         if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
             train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
+            print(train_queries)
+            p.p
 
 logging.info("Train queries: {}".format(len(train_queries)))
 

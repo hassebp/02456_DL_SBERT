@@ -11,7 +11,7 @@ import logging
 import sys
 import os
 import tarfile
-
+from itertools import islice
 #### Just some code to print debug information to stdout
 logging.basicConfig(format='%(asctime)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
@@ -94,13 +94,17 @@ with open(collection_filepath, encoding='utf8') as fIn:
 
 
 
+
+#corpus = dict(islice(corpus.items(), 5000))
+
+
 ## Run evaluator
 logging.info("Queries: {}".format(len(dev_queries)))
 logging.info("Corpus: {}".format(len(corpus)))
 
 ir_evaluator = evaluation.InformationRetrievalEvaluator(dev_queries, corpus, dev_rel_docs,
                                                         show_progress_bar=True,
-                                                        corpus_chunk_size=10000,
+                                                        corpus_chunk_size=1000,
                                                         precision_recall_at_k=[10, 100],
                                                         name="msmarco dev")
 
