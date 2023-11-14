@@ -1,7 +1,8 @@
 import torch
 import argparse
 #from models import SBERT
-from data_retrieval import webscraping, generate_urls
+
+from scraper import webscraping, generate_urls
 #from data_loader import test_data_loading,test_msmarco
 #from training import test_training
 #from training_example import test_snli
