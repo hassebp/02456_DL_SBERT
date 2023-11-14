@@ -2,62 +2,61 @@ import requests, os, csv, time
 from bs4 import BeautifulSoup
 from pelutils import TT
 from uuid import uuid4
-# Function to get information from a single article page
+from nltk.stem import PorterStemmer
+from nltk.tokenize import word_tokenize
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+import re
+
+
+
+
+# Define a function to preprocess text data
+def preprocess_text(text):
+    # Initialize the Porter Stemmer
+    ps = PorterStemmer()
+    
+    # Tokenize the text, remove stop words, and apply stemming
+    tokens = word_tokenize(text.lower())  # Convert to lowercase and tokenize
+    stemmed = [ps.stem(word) for word in tokens if word not in ENGLISH_STOP_WORDS]
+    
+    # Remove non-word characters/numbers and extra whitespace
+    cleaned_text = re.sub(r'[^\w\s]', ' ', ' '.join(stemmed))
+    cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+    
+    return cleaned_text
+
+
+# Function to scrape information from a single article page
 def scrape_article(url):
-    # Get response from link, to see if site is available
     response = requests.get(url)
     if response.status_code == 200:
-        # Load in the html code
         soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Extract title, abstract, and keywords
+        
+        # Attempt to extract title, abstract, and keywords
         title = soup.find('h1', {'itemprop': 'name'})
-        
-        ### All of this just checks if there is a title, abstract and keywords, else return None
-        if title:
-            title = title.text.strip()
-        else:
-            return None
         abstract = soup.find('div', {'class': 'show__abstract is-long is-initial-letter'})
-        
-        if abstract:
-            abstract = abstract.text.strip()
-        else:
-            return None
-
         keywords = []
-        identifier_keywords = soup.find('strong', text='Keywords')
-        if identifier_keywords:
-            # Find the <p> tag after the <strong> tag
-            p_tag = identifier_keywords.find_next('p')
-
-            # Find all <a> tags within the <p> tag
-            all_a_tags = p_tag.find_all('a')
-
-            # Print the text content of each <a> tag
-            for a_tag in all_a_tags:
-                keywords.append(a_tag.text)
-        else:
-            return None
-                
-        identifier_keywords = soup.find('strong', text='Other keywords')
-        if identifier_keywords:
-            # Find the <p> tag after the <strong> tag
-            p_tag = identifier_keywords.find_next('p')
-
-            # Find all <a> tags within the <p> tag
-            all_a_tags = p_tag.find_all('a')
-
-            # Print the text content of each <a> tag
-            for a_tag in all_a_tags:
-                keywords.append(a_tag.text)
         
-        # Making sure no duplicates in keywords
+        # If title or abstract is missing, return None
+        if not title or not abstract:
+            return None
+        
+        # Process title and abstract
+        title = title.text.strip()
+        abstract = abstract.text.strip()
+        
+        # Extract keywords and additional keywords if present
+        for identifier in ['Keywords', 'Other keywords']:
+            keyword_tag = soup.find('strong', text=identifier)
+            if keyword_tag:
+                p_tag = keyword_tag.find_next('p')
+                keywords.extend([a_tag.text for a_tag in p_tag.find_all('a')])
+        
+        # Remove duplicates and ensure a sufficient number of keywords and abstract length
         keywords = list(set(word.lower() for word in keywords))
-      
-        # Thinking we need enough keywords? And a long enough abstract
         if len(keywords) < 5 or len(abstract) < 500:
             return None
+        
         return {'title': title, 'abstract': abstract, 'keywords': keywords}
     else:
         print(f"Failed to fetch {url}")
@@ -103,53 +102,70 @@ def get_article_links(years, max_pages_pr_year, max_articles):
     return links
 
 
-def generate_urls(years, filename, max_pages_pr_year: int = 20, max_articles: int = 10e5):
+def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
     article_links = get_article_links(years, max_pages_pr_year, max_articles)
-    with open(filename + '.csv', mode='w', newline='') as file:
+    with open(filename + '_links.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
         for index, url in enumerate(article_links, start=1):
-            writer.writerow([index] + [url])
+            writer.writerow([index, url])
        
         
 
+def webscraping(filename, file_path, max_articles=50):
+    folder = 'data_' + filename
+    os.makedirs(folder, exist_ok=True)
 
 
 # Main function to initiate the scraping process
 def webscraping(filename):
-    
-    file_path = 'C:/Users/hasse/Skrivebord/02456_DL_SBERT/generic_filename_20231114T000628.csv'
+    file_path = os.path.join(os.getcwd(), "generic_filename_20231114T000628.csv")
     data_list = []
     folder = 'data_' + filename
-    os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
+    
     with open(file_path, 'r') as file:
         csv_reader = csv.reader(file)
-
         # Iterate over rows and append them to the list
         for row in csv_reader:
             data_list.append(row)
+    
     # Testing on the 50 first
     urls = [row[1] for row in data_list][:50]
  
     for index, url in enumerate(urls, start=1):
         data = scrape_article(url)
-        if data == None:
+        if data is None:
             continue
+        
+        
+        # Apply the preprocessing to title, abstract, and keywords
+        preprocessed_title = preprocess_text(data['title'])
+        preprocessed_abstract = preprocess_text(data['abstract'])
+        preprocessed_keywords = [preprocess_text(keyword) for keyword in data['keywords']]
+        
         
         # Just to ensure no DDOS
         if index % 25 == 0:
             time.sleep(1)
         
-        with open(os.path.join(folder,'corpus_' + filename + '.csv'), mode='a+', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow([index, data['abstract']])
+        # Writing abstracts
+        with open(os.path.join(folder, 'corpus_' + filename + '.csv'), mode='a+', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow([index, preprocessed_abstract])
+        
+        # Writing titles
+        with open(os.path.join(folder, 'queries_' + filename + '.csv'), mode='a+', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow([str(uuid4()).split('-')[0], preprocessed_title])
+        
+        # Writing keywords
+        with open(os.path.join(folder, 'keywords_' + filename + '.csv'), mode='a+', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            keywords = '; '.join(preprocessed_keywords)  # Join keywords into a single string separated by semicolons
+            writer.writerow([index, keywords])
             
-        with open(os.path.join(folder,'queries_' + filename + '.csv'), mode='a+', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow([str(uuid4()).split('-')[0], data['title']])
-            
-        with open(os.path.join(folder,'keywords_' + filename + '.csv'), mode='a+', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow([index, data['keywords']])
+        
+
     
 
 
