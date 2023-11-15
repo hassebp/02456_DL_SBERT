@@ -6,7 +6,7 @@ from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 import re
-
+from tqdm import tqdm
 
 
 
@@ -118,21 +118,23 @@ def webscraping(filename, file_path, max_articles=50):
 
 # Main function to initiate the scraping process
 def webscraping(filename):
-    file_path = os.path.join(os.getcwd(), "generic_filename_20231114T000628.csv")
+    file_path = os.path.join(os.getcwd(), "generic_filename_20231114T202027.csv")
     data_list = []
     folder = 'data_' + filename
     os.makedirs(folder, exist_ok=True)
-    
+    print("here 1")
     with open(file_path, 'r') as file:
         csv_reader = csv.reader(file)
         # Iterate over rows and append them to the list
         for row in csv_reader:
             data_list.append(row)
-    
+    print("here 2") 
     # Testing on the 50 first
-    urls = [row[1] for row in data_list][:50]
- 
-    for index, url in enumerate(urls, start=1):
+    urls = [row[1] for row in data_list]
+    print(len(urls))
+    print("here 3")
+    p.p
+    for index, url in tqdm(enumerate(urls, start=1)):
         data = scrape_article(url)
         if data is None:
             continue
@@ -145,7 +147,7 @@ def webscraping(filename):
         
         
         # Just to ensure no DDOS
-        if index % 25 == 0:
+        if index % 2500 == 0:
             time.sleep(1)
         
         # Writing abstracts

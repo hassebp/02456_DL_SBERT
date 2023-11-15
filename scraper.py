@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 from preprocessing import preprocess_text
 from uuid import uuid4
+from tqdm import tqdm
 
 def scrape_article(url):
     """ Scrape information from a single article page. """
@@ -49,7 +50,7 @@ def write_to_csv(folder, filename, data_rows, mode='a+'):
         writer.writerows(data_rows)  # writerows is used to write multiple rows
 
 
-def generate_urls(years, fileame, max_pages_pr_year=20, max_articles=1000):
+def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
     article_links = get_article_links(years, max_pages_pr_year, max_articles)
     with open(filename + '_links.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -59,7 +60,7 @@ def generate_urls(years, fileame, max_pages_pr_year=20, max_articles=1000):
 
 def webscraping(filename, max_articles=105, save_interval=10):
     """ Main webscraping function to orchestrate the scraping process. """
-    file_path = os.path.join(os.getcwd(), "generic_filename_20231114T000628.csv")
+    file_path = os.path.join(os.getcwd(), "generic_filename_20231114T202027.csv")
     folder = 'data_' + filename
     os.makedirs(folder, exist_ok=True)
     
@@ -73,7 +74,7 @@ def webscraping(filename, max_articles=105, save_interval=10):
 
     urls = [row[1] for row in data_list][:max_articles]
 
-    for index, url in enumerate(urls, start=1):
+    for index, url in tqdm(enumerate(urls, start=1)):
         article_data = scrape_article(url)
         if article_data:
             preprocessed_title = preprocess_text(article_data['title'])
@@ -96,7 +97,7 @@ def webscraping(filename, max_articles=105, save_interval=10):
             batch_queries_data = []
             batch_keywords_data = []
 
-        if index % 25 == 0:
+        if index % 2500 == 0:
             time.sleep(1)
     
     # Save any remaining data

@@ -1,7 +1,6 @@
 import torch
 import argparse
 #from models import SBERT
-
 from scraper import webscraping, generate_urls
 #from data_loader import test_data_loading,test_msmarco
 #from training import test_training
@@ -43,7 +42,10 @@ def run_tests():
         generate_urls(years, filename, max_pg_yr, max_articles)
     elif args.function == 'test_webscraping':
         filename = args.filename
-        webscraping(filename)
+        if args.max_articles:
+            webscraping(filename, args.max_articles)
+        else:
+            webscraping(filename)
     else:
         print(f"Error: Unknown function '{args.function}'")
     """elif args.function == 'test_data_loading':
