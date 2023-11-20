@@ -69,7 +69,14 @@ def extract_keywords(soup):
         if keyword_tag:
             p_tag = keyword_tag.find_next('p')
             keywords.extend(a_tag.text for a_tag in p_tag.find_all('a'))
-    return list(set(keywords))
+           
+    #preprocess keywords, so we eliminate duplicates, spacing and unforseen characters
+    unique_words = set()
+    for k in keywords:
+        for word in k.split(';'):
+            unique_words.update(word.split())
+    
+    return list(set(unique_words))
 
 
 def write_to_csv(folder, filename, data_rows, mode='a+'):

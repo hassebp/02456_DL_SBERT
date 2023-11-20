@@ -39,14 +39,15 @@ if not os.path.exists(embedding_cache_path):
             if len(corpus_sentences) >= max_corpus_size:
                 break
 
-
-            corpus_sentences.add(row[2])
+            """
+            corpus_sentences.add(row[1])
             if len(corpus_sentences) >= max_corpus_size:
                 break
+            """
 
     corpus_sentences = list(corpus_sentences)
     print("Encode the corpus. This might take a while")
-    corpus_embeddings = model.encode(corpus_sentences, show_progress_bar=True, convert_to_tensor=True, num_workers=2)
+    corpus_embeddings = model.encode(corpus_sentences, show_progress_bar=True, convert_to_tensor=True)
 
     print("Store file on disc")
     with open(embedding_cache_path, "wb") as fOut:
