@@ -71,12 +71,16 @@ def extract_keywords(soup):
             p_tag = keyword_tag.find_next('p')
             keywords.extend(a_tag.text for a_tag in p_tag.find_all('a'))
            
-    #preprocess keywords, so we eliminate duplicates, spacing and unforeseen characters
+    # Preprocess keywords, so we eliminate duplicates, spacing, and unforeseen characters
     unique_words = set()
     for k in keywords:
-        cleaned_keyword = re.sub(r'[^a-zA-Z]', '', k)
+        # Remove non-alphanumeric characters except spaces and semicolons
+        cleaned_keyword = re.sub(r'[^\w\s;]', '', k)
+
+        # Split on semicolons and strip spaces
         for word in cleaned_keyword.split(';'):
-            meaningful_words = [w for w in word.split() if len(w) > 1 or w.lower() in ['a', 'i']]
+            word = word.strip()  # Remove leading and trailing spaces
+            meaningful_words = [w for w in word.split() if len(w) > 1]  # Only words with more than one character
             unique_words.update(meaningful_words)
     
     return list(unique_words)
@@ -130,6 +134,8 @@ def webscraping(filename, max_articles=105, save_interval=10):
                 # Append the processed data to the respective batch lists
                 batch_corpus_data.append([index, preprocessed_abstract])
                 batch_queries_data.append([random_numbers[index], preprocessed_title])
+                
+                preprocessed_keywords = [word for word in preprocessed_keywords if len(word) > 1]  # Only words with more than one character
                 batch_keywords_data.append([index, random_numbers[index], ';'.join(preprocessed_keywords)])
             
             # Save data at the save interval
