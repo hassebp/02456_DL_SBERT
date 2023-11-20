@@ -99,6 +99,11 @@ with open(queries_filepath, 'r', encoding='utf8') as fIn:
         queries[qid] = query
 
 
+ce_scores_file = os.path.join(data_folder, 'jaccard_scores.pkl')
+logging.info("Load Jaccard scores dict")
+with open(ce_scores_file, 'rb') as fIn:
+    ce_scores = pickle.load(fIn)
+    
 # Load a dict (qid, pid) -> ce_score that maps query-ids (qid) and paragraph-ids (pid)
 # to the CrossEncoder score computed by the cross-encoder/ms-marco-MiniLM-L-6-v2 model
 
@@ -106,59 +111,61 @@ with open(queries_filepath, 'r', encoding='utf8') as fIn:
 
 
 ### Split for training and validation
-total_entries = len(queries)
-split_point = int(0.7 * total_entries)
+#total_entries = len(queries)
+#split_point = int(0.7 * total_entries)
 
-train_queries = dict(list(queries.items())[:split_point])
-val_queries = dict(list(queries.items())[split_point:])
+##train_queries = dict(list(queries.items())[:split_point])
+#val_queries = dict(list(queries.items())[split_point:])
 
-validation_filepath = os.path.join(data_folder, 'validation.csv')
+#validation_filepath = os.path.join(data_folder, 'validation.csv')
 # Save the dictionary to a JSON file
-with open('validation_queries.pkl', 'w') as pickle_file:
-    pickle.dump(val_queries, pickle_file)
+#with open('validation_queries.pkl', 'wb') as pickle_file:
+#    pickle.dump(val_queries, pickle_file)
 
-print('Dictionary saved successfully.')
+#print('Dictionary saved successfully.')
 
 hard_negatives_filepath = os.path.join(data_folder, 'hard_negs.json')
 logging.info("Read hard negatives train file")
-train_queries_hards = {}
+train_queries = {}
 negs_to_use = None
 with open(hard_negatives_filepath, 'r') as json_file:
     for line in tqdm.tqdm(json_file):
-        if max_passages > 0 and len(train_queries_hards) >= max_passages:
+        if max_passages > 0 and len(train_queries) >= max_passages:
             break
-        data = json.loads(line)
-        
-        #Get the positive passage ids
-        pos_pids = data['pos']
+        data_load = json.loads(line)
+        for data in data_load:
+            
+            #Get the positive passage ids
+            pos_pids = data['pos']
+            
+            #Get the hard negatives
+            neg_pids = set()
+            if negs_to_use is None:
+                if args.negs_to_use is not None:    #Use specific system for negatives
+                    negs_to_use = args.negs_to_use.split(",")
+                else:   #Use all systems
+                    negs_to_use = list(data['neg'].keys())
+                logging.info("Using negatives from the following systems:", negs_to_use)
 
-        #Get the hard negatives
-        neg_pids = set()
-        if negs_to_use is None:
-            if args.negs_to_use is not None:    #Use specific system for negatives
-                negs_to_use = args.negs_to_use.split(",")
-            else:   #Use all systems
-                negs_to_use = list(data['neg'].keys())
-            logging.info("Using negatives from the following systems:", negs_to_use)
+            for system_name in negs_to_use:
+                if system_name not in data['neg']:
+                    continue
 
-        for system_name in negs_to_use:
-            if system_name not in data['neg']:
-                continue
-
-            system_negs = data['neg'][system_name]
-            negs_added = 0
-            for pid in system_negs:
-                if pid not in neg_pids:
-                    neg_pids.add(pid)
-                    negs_added += 1
-                    if negs_added >= num_negs_per_system:
-                        break
-
-        if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
-            train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
+                system_negs = data['neg'][system_name]
+                negs_added = 0
+                for pid in system_negs:
+                    if pid not in neg_pids:
+                        neg_pids.add(pid)
+                        negs_added += 1
+                        if negs_added >= num_negs_per_system:
+                            break
+                        
+            if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
+                train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
+                
 
 
-logging.info("Train queries: {}".format(len(train_queries_hards)))
+logging.info("Train queries: {}".format(len(train_queries)))
 
 # We create a custom MSMARCO dataset that returns triplets (query, positive, negative)
 # on-the-fly based on the information from the mined-hard-negatives jsonl file.
@@ -189,14 +196,21 @@ class MSMARCODataset(Dataset):
             query['neg'].append(pos_id)
 
         #Get a negative passage
+        
+        print(self.ce_scores['27987']['910679'])
+        p.p
         neg_id = query['neg'].pop(0)    #Pop negative and add at end
         neg_text = self.corpus[neg_id]
         query['neg'].append(neg_id)
+        try:
+            pos_score = self.ce_scores[qid][pos_id]
+            neg_score = self.ce_scores[qid][neg_id]
 
-        pos_score = self.ce_scores[qid][pos_id]
-        neg_score = self.ce_scores[qid][neg_id]
-
-        return InputExample(texts=[query_text, pos_text, neg_text], label=pos_score-neg_score)
+            return InputExample(texts=[query_text, pos_text, neg_text], label=pos_score-neg_score)
+        except:
+            print(self.ce_scores, qid, pos_id, neg_id)
+            
+        
 
     def __len__(self):
         return len(self.queries)

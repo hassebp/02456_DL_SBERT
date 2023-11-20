@@ -1,5 +1,18 @@
-from sentence_transformers import util
-import os, gzip, tqdm, json, pickle, numpy, random, csv
+import os, logging, tqdm, json, pickle, argparse, random, csv
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--max_value_hard_neg", default=0.05, type=float)
+parser.add_argument("--max_hard_negs", default=10, type=int)
+parser.add_argument("--max_nb_scores", default=50, type=int)
+args = parser.parse_args()
+
+logging.info(str(args))
+
+
+
+
+
 def jaccard_set(list1, list2):
     intersection = len(list(set(list1).intersection(list2)))
     union = (len(list1) + len(list2)) - intersection
@@ -29,7 +42,9 @@ def add_numbers_to_neg(my_dict, model_key, numbers):
         my_dict['neg'][model_key] = numbers
         
 def append_dict_to_list(main_dict, sub_dict):
-    main_dict.setdefault('sub_dicts', []).append(sub_dict)
+    main_dict.setdefault().append(sub_dict)
+
+
 
 def generate_pos_neg(filename):
     """_summary_
@@ -37,7 +52,8 @@ def generate_pos_neg(filename):
     Args:
         filename (_type_): _description_
     """
-    data = {}
+    data = []
+    jacc_custom_scores = {}
     with open(filename, 'r', newline='') as csvfile:
         reader = list(csv.reader(csvfile))
         
@@ -53,29 +69,44 @@ def generate_pos_neg(filename):
                         'neg': {}
             }
             # Select x random rows and extract values from the third column
-            random_rows = [r for r in random.sample(list(reader), 900)]
+            random_rows = [r for r in random.sample(list(reader), args.max_nb_scores)]
             cnt1 = 0
             cnt2 = 0
+            cnt1_ce = 0
+            jacc_custom_scores_rows = {}
             for rand_row in random_rows:
                 b = [item.split(';') for item in rand_row]
                 rand_id, rand_qid, rand_keywords = b[0][0], b[0][1], b[0][2:]
                 eval_1 = jaccard_set(keywords,rand_keywords)
                 eval_2 = jaccard_custom(keywords,rand_keywords)
-                if (eval_1 < 0.05 and cnt1 < 10):
+                if (eval_1 < args.max_value_hard_neg and cnt1 < args.max_hard_negs):
                     add_numbers_to_neg(sub_data, 'jaccard', [int(rand_id)])
                     cnt1 += 1
                    
-                if (eval_2 < 0.05 and cnt2 < 10):
+                if (eval_2 < args.max_value_hard_neg and cnt2 < args.max_hard_negs):
                     add_numbers_to_neg(sub_data, 'jaccard_custom', [int(rand_id)])
                     cnt2 += 1
                     
+                if cnt1_ce < args.max_nb_scores:
+                    jacc_custom_scores_rows.update({
+                        int(rand_qid): float(eval_2)
+                    })
+                    cnt1_ce += 1
+            jacc_custom_scores[qid] = jacc_custom_scores_rows
+            data.append(sub_data)
             
-            append_dict_to_list(data, sub_data)
+            #append_dict_to_list(data, sub_data)
 
     
-    test = os.path.join(os.getcwd(), 'hard_negs.json')
-    with open(test, 'w') as json_file:
+    hard_negs_path = os.path.join(os.getcwd(), 'hard_negs.json')
+    jacc_scores_path = os.path.join(os.getcwd(), 'jaccard_scores.pkl')
+    
+    with open(hard_negs_path, 'w') as json_file:
         json.dump(data, json_file)
+
+    # Open the file in binary read mode and load the dictionary
+    with open(jacc_scores_path, 'wb') as pickle_file:
+        pickle.dump(jacc_custom_scores, pickle_file)
     
     
 generate_pos_neg(file_path)
