@@ -5,8 +5,37 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from preprocessing import preprocess_text
-from uuid import uuid4
+import random
 from tqdm import tqdm
+
+
+# Function to get links to all articles within a given range of yearspage={page}&
+def get_article_links(years, max_pages_pr_year, max_articles):
+    start_year, end_year = years[0], years[1]
+    links = []
+    for year in range(start_year, end_year + 1):
+        # type=article_journal just to only get the journals
+        base_url = f"https://findit.dtu.dk/en/catalog?type=article_journal_article"
+        url_year = f"{base_url}&year={year}"
+        for page in range(1, max_pages_pr_year + 1):
+            
+            url = f"{url_year}&page={page}"
+            response = requests.get(url)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                article_links = soup.find_all('a', {'class': 'result__title'})
+
+                # Extract and print the URLs
+                for link in article_links:
+                    if len(links) >= max_articles:
+                        break
+                    article_url = link['href']
+                    links.append(article_url)
+                # Should remove if any duplicates somehow?
+                links = list(set(links))  
+        # Dunno if you can get banned by IP from DTU Findit if you make too many requests? So I just put in a timer
+        time.sleep(0.5)
+    return links
 
 def scrape_article(url):
     """ Scrape information from a single article page. """
@@ -64,6 +93,12 @@ def webscraping(filename, max_articles=105, save_interval=10):
     folder = 'data_' + filename
     os.makedirs(folder, exist_ok=True)
     
+    ### Generates a random number for qid
+    x = max_articles
+    range_of_numbers = range(1, 1000000)  
+    random_numbers = random.sample(range_of_numbers, x)
+    
+    
     # Initialize lists to store batches of scraped data
     batch_corpus_data = []
     batch_queries_data = []
@@ -83,8 +118,8 @@ def webscraping(filename, max_articles=105, save_interval=10):
 
             # Append the processed data to the respective batch lists
             batch_corpus_data.append([index, preprocessed_abstract])
-            batch_queries_data.append([str(uuid4()).split('-')[0], preprocessed_title])
-            batch_keywords_data.append([index, ';'.join(preprocessed_keywords)])
+            batch_queries_data.append([random_numbers[index], preprocessed_title])
+            batch_keywords_data.append([index, random_numbers[index], ';'.join(preprocessed_keywords)])
         
         # Save data at the save interval
         if index % save_interval == 0 or index == len(urls):

@@ -1,12 +1,6 @@
 import torch
 import argparse
-#from models import SBERT
 from scraper import webscraping, generate_urls
-#from data_loader import test_data_loading,test_msmarco
-#from training import test_training
-#from training_example import test_snli
-#from training_custom import train_model, test_model
-#from msmarco_doctriples import generate_triples
 from datetime import datetime
 
 def check_cuda_availability():
@@ -48,22 +42,6 @@ def run_tests():
             webscraping(filename)
     else:
         print(f"Error: Unknown function '{args.function}'")
-    """elif args.function == 'test_data_loading':
-        test_data_loading()
-    elif args.function == 'test_training':
-        test_training()
-    elif args.function == 'test_snli':
-        test_snli()
-    elif args.function == 'train_model':
-        train_model()
-    elif args.function == 'test_model':
-        test_model()
-    elif args.function == 'test_msmarco':
-        test_msmarco()"""
-    #elif args.function == 'generate_doctriples':
-        #stats = generate_triples("triples.tsv", 1000)
-        #for key, val in stats.items():
-        #    print(f"{key}\t{val}")
     
 
 if __name__ == "__main__":

@@ -74,7 +74,7 @@ with open(train_script_path, 'a') as fOut:
 
 
 ### Now we read the MS Marco dataset
-data_folder = 'msmarco-data'
+data_folder = 'data_generic_filename_20231115T113324'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
@@ -99,15 +99,6 @@ with open(collection_filepath, 'r', encoding='utf8') as fIn:
 ### Read the train queries, store in queries dict
 queries = {}        #dict in the format: query_id -> query. Stores all training queries
 queries_filepath = os.path.join(data_folder, 'queries.train.tsv')
-if not os.path.exists(queries_filepath):
-    tar_filepath = os.path.join(data_folder, 'queries.tar.gz')
-    if not os.path.exists(tar_filepath):
-        logging.info("Download queries.tar.gz")
-        util.http_get('https://msmarco.blob.core.windows.net/msmarcoranking/queries.tar.gz', tar_filepath)
-
-    with tarfile.open(tar_filepath, "r:gz") as tar:
-        tar.extractall(path=data_folder)
-
 
 with open(queries_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
