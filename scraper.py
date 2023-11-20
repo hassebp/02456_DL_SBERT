@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from preprocessing import preprocess_text
 import random
 from tqdm import tqdm
+import re
 
 
 # Function to get links to all articles within a given range of yearspage={page}&
@@ -70,13 +71,15 @@ def extract_keywords(soup):
             p_tag = keyword_tag.find_next('p')
             keywords.extend(a_tag.text for a_tag in p_tag.find_all('a'))
            
-    #preprocess keywords, so we eliminate duplicates, spacing and unforseen characters
+    #preprocess keywords, so we eliminate duplicates, spacing and unforeseen characters
     unique_words = set()
     for k in keywords:
-        for word in k.split(';'):
-            unique_words.update(word.split())
+        cleaned_keyword = re.sub(r'[^a-zA-Z]', '', k)
+        for word in cleaned_keyword.split(';'):
+            meaningful_words = [w for w in word.split() if len(w) > 1 or w.lower() in ['a', 'i']]
+            unique_words.update(meaningful_words)
     
-    return list(set(unique_words))
+    return list(unique_words)
 
 
 def write_to_csv(folder, filename, data_rows, mode='a+'):
@@ -117,31 +120,33 @@ def webscraping(filename, max_articles=105, save_interval=10):
     urls = [row[1] for row in data_list][:max_articles]
 
     for index, url in tqdm(enumerate(urls, start=1)):
-        article_data = scrape_article(url)
-        if article_data:
-            preprocessed_title = preprocess_text(article_data['title'])
-            preprocessed_abstract = preprocess_text(article_data['abstract'])
-            preprocessed_keywords = [preprocess_text(keyword) for keyword in article_data['keywords']]
-
-            # Append the processed data to the respective batch lists
-            batch_corpus_data.append([index, preprocessed_abstract])
-            batch_queries_data.append([random_numbers[index], preprocessed_title])
-            batch_keywords_data.append([index, random_numbers[index], ';'.join(preprocessed_keywords)])
-        
-        # Save data at the save interval
-        if index % save_interval == 0 or index == len(urls):
-            write_to_csv(folder, 'corpus.csv', batch_corpus_data, mode='a+')
-            write_to_csv(folder, 'queries.csv', batch_queries_data, mode='a+')
-            write_to_csv(folder, 'keywords.csv', batch_keywords_data, mode='a+')
-
-            # Clear the batch lists after saving
-            batch_corpus_data = []
-            batch_queries_data = []
-            batch_keywords_data = []
-
-        if index % 2500 == 0:
-            time.sleep(1)
+        if index < max_articles:
+            article_data = scrape_article(url)
+            if article_data:
+                preprocessed_title = preprocess_text(article_data['title'])
+                preprocessed_abstract = preprocess_text(article_data['abstract'])
+                preprocessed_keywords = [preprocess_text(keyword) for keyword in article_data['keywords']]
     
+                # Append the processed data to the respective batch lists
+                batch_corpus_data.append([index, preprocessed_abstract])
+                batch_queries_data.append([random_numbers[index], preprocessed_title])
+                batch_keywords_data.append([index, random_numbers[index], ';'.join(preprocessed_keywords)])
+            
+            # Save data at the save interval
+            if index % save_interval == 0 or index == len(urls):
+                write_to_csv(folder, 'corpus.csv', batch_corpus_data, mode='a+')
+                write_to_csv(folder, 'queries.csv', batch_queries_data, mode='a+')
+                write_to_csv(folder, 'keywords.csv', batch_keywords_data, mode='a+')
+    
+                # Clear the batch lists after saving
+                batch_corpus_data = []
+                batch_queries_data = []
+                batch_keywords_data = []
+    
+            if index % 2500 == 0:
+                time.sleep(1)
+        else:
+            break
     # Save any remaining data
     if batch_corpus_data:
         write_to_csv(folder, 'corpus.csv', batch_corpus_data, mode='a+')
