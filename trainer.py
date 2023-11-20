@@ -74,63 +74,58 @@ with open(train_script_path, 'a') as fOut:
 
 
 ### Now we read the MS Marco dataset
-data_folder = 'data_generic_filename_20231115T113324'
+data_folder = 'data_article'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
-collection_filepath = os.path.join(data_folder, 'collection.tsv')
-if not os.path.exists(collection_filepath):
-    tar_filepath = os.path.join(data_folder, 'collection.tar.gz')
-    if not os.path.exists(tar_filepath):
-        logging.info("Download collection.tar.gz")
-        util.http_get('https://msmarco.blob.core.windows.net/msmarcoranking/collection.tar.gz', tar_filepath)
+collection_filepath = os.path.join(data_folder, 'corpus.csv')
 
-    with tarfile.open(tar_filepath, "r:gz") as tar:
-        tar.extractall(path=data_folder)
-
-logging.info("Read corpus: collection.tsv")
+logging.info("Read corpus: corpus.csv")
 with open(collection_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
-        pid, passage = line.strip().split("\t")
+        pid, passage = line.strip().split(";")
         pid = int(pid)
         corpus[pid] = passage
 
 
 ### Read the train queries, store in queries dict
 queries = {}        #dict in the format: query_id -> query. Stores all training queries
-queries_filepath = os.path.join(data_folder, 'queries.train.tsv')
+queries_filepath = os.path.join(data_folder, 'queries.csv')
 
 with open(queries_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
-        qid, query = line.strip().split("\t")
+        qid, query = line.strip().split(";")
         qid = int(qid)
         queries[qid] = query
 
 
 # Load a dict (qid, pid) -> ce_score that maps query-ids (qid) and paragraph-ids (pid)
 # to the CrossEncoder score computed by the cross-encoder/ms-marco-MiniLM-L-6-v2 model
-ce_scores_file = os.path.join(data_folder, 'cross-encoder-ms-marco-MiniLM-L-6-v2-scores.pkl.gz')
-if not os.path.exists(ce_scores_file):
-    logging.info("Download cross-encoder scores file")
-    util.http_get('https://huggingface.co/datasets/sentence-transformers/msmarco-hard-negatives/resolve/main/cross-encoder-ms-marco-MiniLM-L-6-v2-scores.pkl.gz', ce_scores_file)
-
-logging.info("Load CrossEncoder scores dict")
-with gzip.open(ce_scores_file, 'rb') as fIn:
-    ce_scores = pickle.load(fIn)
 
 # As training data we use hard-negatives that have been mined using various systems
-hard_negatives_filepath = os.path.join(data_folder, 'msmarco-hard-negatives.jsonl.gz')
-if not os.path.exists(hard_negatives_filepath):
-    logging.info("Download cross-encoder scores file")
-    util.http_get('https://huggingface.co/datasets/sentence-transformers/msmarco-hard-negatives/resolve/main/msmarco-hard-negatives.jsonl.gz', hard_negatives_filepath)
 
 
+### Split for training and validation
+total_entries = len(queries)
+split_point = int(0.7 * total_entries)
+
+train_queries = dict(list(queries.items())[:split_point])
+val_queries = dict(list(queries.items())[split_point:])
+
+validation_filepath = os.path.join(data_folder, 'validation.csv')
+# Save the dictionary to a JSON file
+with open('validation_queries.pkl', 'w') as pickle_file:
+    pickle.dump(val_queries, pickle_file)
+
+print('Dictionary saved successfully.')
+
+hard_negatives_filepath = os.path.join(data_folder, 'hard_negs.json')
 logging.info("Read hard negatives train file")
-train_queries = {}
+train_queries_hards = {}
 negs_to_use = None
-with gzip.open(hard_negatives_filepath, 'rt') as fIn:
-    for line in tqdm.tqdm(fIn):
-        if max_passages > 0 and len(train_queries) >= max_passages:
+with open(hard_negatives_filepath, 'r') as json_file:
+    for line in tqdm.tqdm(json_file):
+        if max_passages > 0 and len(train_queries_hards) >= max_passages:
             break
         data = json.loads(line)
         
@@ -163,7 +158,7 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
             train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
 
 
-logging.info("Train queries: {}".format(len(train_queries)))
+logging.info("Train queries: {}".format(len(train_queries_hards)))
 
 # We create a custom MSMARCO dataset that returns triplets (query, positive, negative)
 # on-the-fly based on the information from the mined-hard-negatives jsonl file.
