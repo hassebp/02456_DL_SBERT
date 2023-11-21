@@ -202,8 +202,9 @@ class MSMARCODataset(Dataset):
             pos_text = self.corpus[pos_id]
             query['neg'].append(pos_id)
 
-        print(self.ce_scores)
+        print(query)
         p.p
+       
 
 
         #Get a negative passage
@@ -211,7 +212,8 @@ class MSMARCODataset(Dataset):
         neg_text = self.corpus[neg_id]
         query['neg'].append(neg_id)
 
-        
+        print(pos_id, neg_id)
+        p.p
         
         pos_score = self.ce_scores[qid][pos_id]
         neg_score = self.ce_scores[qid][neg_id]

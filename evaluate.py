@@ -31,26 +31,12 @@ corpus_max_size = int(sys.argv[2])*1000 if len(sys.argv) >= 3 else 0
 model = SentenceTransformer(model_name)
 
 ### Data files
-data_folder = 'msmarco-data'
+data_folder = 'data_article'
 os.makedirs(data_folder, exist_ok=True)
 
-collection_filepath = os.path.join(data_folder, 'collection.tsv')
-dev_queries_file = os.path.join(data_folder, 'queries.dev.small.tsv')
-qrels_filepath = os.path.join(data_folder, 'qrels.dev.tsv')
-
-### Download files if needed
-if not os.path.exists(collection_filepath) or not os.path.exists(dev_queries_file):
-    tar_filepath = os.path.join(data_folder, 'collectionandqueries.tar.gz')
-    if not os.path.exists(tar_filepath):
-        logging.info("Download: "+tar_filepath)
-        util.http_get('https://msmarco.blob.core.windows.net/msmarcoranking/collectionandqueries.tar.gz', tar_filepath)
-
-    with tarfile.open(tar_filepath, "r:gz") as tar:
-        tar.extractall(path=data_folder)
-
-
-if not os.path.exists(qrels_filepath):
-    util.http_get('https://msmarco.blob.core.windows.net/msmarcoranking/qrels.dev.tsv', qrels_filepath)
+collection_filepath = os.path.join(data_folder, 'corpus.csv')
+dev_queries_file = os.path.join(data_folder, 'queries_dev_small.csv')
+qrels_filepath = os.path.join(data_folder, 'test.tsv')
 
 ### Load data
 
@@ -63,7 +49,7 @@ needed_qids = set()     #Query IDs we need
 # Load the 6980 dev queries
 with open(dev_queries_file, encoding='utf8') as fIn:
     for line in fIn:
-        qid, query = line.strip().split("\t")
+        qid, query = line.strip().split(";")
         dev_queries[qid] = query.strip()
 
 
@@ -71,7 +57,6 @@ with open(dev_queries_file, encoding='utf8') as fIn:
 with open(qrels_filepath) as fIn:
     for line in fIn:
         qid, _, pid, _ = line.strip().split('\t')
-
         if qid not in dev_queries:
             continue
 
@@ -86,7 +71,7 @@ with open(qrels_filepath) as fIn:
 # Read passages
 with open(collection_filepath, encoding='utf8') as fIn:
     for line in fIn:
-        pid, passage = line.strip().split("\t")
+        pid, passage = line.strip().split(";")
         passage = passage
 
         if pid in needed_pids or corpus_max_size <= 0 or len(corpus) <= corpus_max_size:

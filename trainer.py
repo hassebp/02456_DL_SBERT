@@ -124,44 +124,43 @@ with open(ce_scores_file, 'rb') as fIn:
 
 #print('Dictionary saved successfully.')
 
-hard_negatives_filepath = os.path.join(data_folder, 'hard_negs.json')
+hard_negatives_filepath = os.path.join(data_folder, 'hard_negs.jsonl.gz')
 logging.info("Read hard negatives train file")
 train_queries = {}
 negs_to_use = None
-with open(hard_negatives_filepath, 'r') as json_file:
-    for line in tqdm.tqdm(json_file):
+with gzip.open(hard_negatives_filepath, 'rt') as fIn:
+    for line in tqdm.tqdm(fIn):
         if max_passages > 0 and len(train_queries) >= max_passages:
             break
-        data_load = json.loads(line)
-        for data in data_load:
-            
-            #Get the positive passage ids
-            pos_pids = data['pos']
-            
-            #Get the hard negatives
-            neg_pids = set()
-            if negs_to_use is None:
-                if args.negs_to_use is not None:    #Use specific system for negatives
-                    negs_to_use = args.negs_to_use.split(",")
-                else:   #Use all systems
-                    negs_to_use = list(data['neg'].keys())
-                logging.info("Using negatives from the following systems:", negs_to_use)
+        data = json.loads(line)
+       
+        #Get the positive passage ids
+        pos_pids = data['pos']
+        
+        #Get the hard negatives
+        neg_pids = set()
+        if negs_to_use is None:
+            if args.negs_to_use is not None:    #Use specific system for negatives
+                negs_to_use = args.negs_to_use.split(",")
+            else:   #Use all systems
+                negs_to_use = list(data['neg'].keys())
+            logging.info("Using negatives from the following systems:", negs_to_use)
 
-            for system_name in negs_to_use:
-                if system_name not in data['neg']:
-                    continue
+        for system_name in negs_to_use:
+            if system_name not in data['neg']:
+                continue
 
-                system_negs = data['neg'][system_name]
-                negs_added = 0
-                for pid in system_negs:
-                    if pid not in neg_pids:
-                        neg_pids.add(pid)
-                        negs_added += 1
-                        if negs_added >= num_negs_per_system:
-                            break
-                        
-            if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
-                train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
+            system_negs = data['neg'][system_name]
+            negs_added = 0
+            for pid in system_negs:
+                if pid not in neg_pids:
+                    neg_pids.add(pid)
+                    negs_added += 1
+                    if negs_added >= num_negs_per_system:
+                        break
+                    
+        if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
+            train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
                 
 
 
@@ -175,6 +174,7 @@ class MSMARCODataset(Dataset):
         self.queries_ids = list(queries.keys())
         self.corpus = corpus
         self.ce_scores = ce_scores
+        
 
         for qid in self.queries:
             self.queries[qid]['pos'] = list(self.queries[qid]['pos'])
@@ -185,7 +185,7 @@ class MSMARCODataset(Dataset):
         query = self.queries[self.queries_ids[item]]
         query_text = query['query']
         qid = query['qid']
-
+       
         if len(query['pos']) > 0:
             pos_id = query['pos'].pop(0)    #Pop positive and add at end
             pos_text = self.corpus[pos_id]
@@ -196,19 +196,19 @@ class MSMARCODataset(Dataset):
             query['neg'].append(pos_id)
 
         #Get a negative passage
-        
-        print(self.ce_scores['27987']['910679'])
-        p.p
         neg_id = query['neg'].pop(0)    #Pop negative and add at end
         neg_text = self.corpus[neg_id]
         query['neg'].append(neg_id)
         try:
+            #print(f"This is qid: {qid}. This is pos id: {pos_id}")
             pos_score = self.ce_scores[qid][pos_id]
             neg_score = self.ce_scores[qid][neg_id]
-
-            return InputExample(texts=[query_text, pos_text, neg_text], label=pos_score-neg_score)
-        except:
-            print(self.ce_scores, qid, pos_id, neg_id)
+        except KeyError as e:
+            neg_score=0
+            pos_score=0.1
+        
+        return InputExample(texts=[query_text, pos_text, neg_text], label=pos_score-neg_score)
+       
             
         
 
