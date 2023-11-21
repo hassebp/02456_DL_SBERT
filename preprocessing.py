@@ -18,11 +18,12 @@ def preprocess_text(text):
 def split_queries(query_filename):
     
     # Specify the paths for the two output CSV files
-    output_csv_70_percent_path = os.path.join(os.getcwd(), query_filename + '_train.csv')
-    output_csv_30_percent_path = os.path.join(os.getcwd(), query_filename + '_validate.csv')
+    name = query_filename.split('.')[0]
+    output_csv_70_percent_path = os.path.join(os.getcwd(), name + '_train.csv')
+    output_csv_30_percent_path = os.path.join(os.getcwd(), name + '_validate.csv')
 
     # Read the entire CSV into a list of rows
-    with open(query_filename, 'r') as input_csv:
+    with open(query_filename, 'r', encoding='utf-8') as input_csv:
         csv_reader = csv.reader(input_csv)
         header = next(csv_reader)  # Assuming the first row is the header
         rows = list(csv_reader)
@@ -38,13 +39,13 @@ def split_queries(query_filename):
     rows_30_percent = rows[split_index:]
 
     # Write the 70% portion to the output CSV file
-    with open(output_csv_70_percent_path, 'w', newline='') as output_csv_70_percent:
+    with open(output_csv_70_percent_path, 'w', encoding='utf-8', newline='') as output_csv_70_percent:
         csv_writer_70_percent = csv.writer(output_csv_70_percent)
         csv_writer_70_percent.writerow(header)
         csv_writer_70_percent.writerows(rows_70_percent)
 
     # Write the 30% portion to the output CSV file
-    with open(output_csv_30_percent_path, 'w', newline='') as output_csv_30_percent:
+    with open(output_csv_30_percent_path, 'w', encoding='utf-8', newline='') as output_csv_30_percent:
         csv_writer_30_percent = csv.writer(output_csv_30_percent)
         csv_writer_30_percent.writerow(header)
         csv_writer_30_percent.writerows(rows_30_percent)

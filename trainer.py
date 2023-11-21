@@ -74,7 +74,7 @@ with open(train_script_path, 'a') as fOut:
 
 
 ### Now we read the MS Marco dataset
-data_folder = 'data_article'
+data_folder = 'data_articlev2'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
@@ -199,13 +199,13 @@ class MSMARCODataset(Dataset):
         neg_id = query['neg'].pop(0)    #Pop negative and add at end
         neg_text = self.corpus[neg_id]
         query['neg'].append(neg_id)
-        try:
+        #try:
             #print(f"This is qid: {qid}. This is pos id: {pos_id}")
-            pos_score = self.ce_scores[qid][pos_id]
-            neg_score = self.ce_scores[qid][neg_id]
-        except KeyError as e:
-            neg_score=0
-            pos_score=0.1
+        pos_score = self.ce_scores[qid][pos_id]
+        neg_score = self.ce_scores[qid][neg_id]
+        #except KeyError as e:
+            #neg_score=0
+            #pos_score=0.1
         
         return InputExample(texts=[query_text, pos_text, neg_text], label=pos_score-neg_score)
        

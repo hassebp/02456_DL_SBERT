@@ -1,10 +1,10 @@
 import os, logging, tqdm, json, pickle, argparse, random, csv, gzip
-
+import heapq
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--max_value_hard_neg", default=0.05, type=float)
 parser.add_argument("--max_hard_negs", default=10, type=int)
-parser.add_argument("--max_nb_scores", default=50, type=int)
+parser.add_argument("--max_nb_scores", default=150, type=int)
 args = parser.parse_args()
 
 logging.info(str(args))
@@ -33,7 +33,7 @@ def jaccard_custom(list1,list2):
 
 
 ### Now we read the MS Marco dataset
-file_path = os.path.join(os.getcwd(), "data_article/keywords.csv")
+file_path = os.path.join(os.getcwd(), "data_articlev2/keywords.csv")
 
 def add_numbers_to_neg(my_dict, model_key, numbers):
     if model_key in my_dict['neg']:
@@ -54,7 +54,7 @@ def generate_pos_neg(filename):
     """
     data = []
     jacc_custom_scores = {}
-    with open(filename, 'r', newline='') as csvfile:
+    with open(filename, 'r', newline='',encoding='utf-8') as csvfile:
         reader = list(csv.reader(csvfile))
         
         # Store the results for each row
@@ -65,7 +65,7 @@ def generate_pos_neg(filename):
             id, qid, keywords = a[0][0], a[0][1], a[0][2:]
             # Extract the values from the third column of the current row
             sub_data = {'qid': int(qid),
-                        'pos': [int(id)],
+                        'pos': [],
                         'neg': {}
             }
             # Select x random rows and extract values from the third column
@@ -79,17 +79,19 @@ def generate_pos_neg(filename):
             jacc_custom_scores_rows = {}
             
             ### Adding the pos
-            jacc_custom_scores_rows.update({
+            """jacc_custom_scores_rows.update({
                         int(id): float(jaccard_custom(keywords,keywords))
-                    })
+                    })"""
             
-            
+            evals = []
             for rand_row in random_rows:
                 b = [item.split(';') for item in rand_row]
                 rand_id, rand_qid, rand_keywords = b[0][0], b[0][1], b[0][2:]
                 eval_1 = jaccard_set(keywords,rand_keywords)
                 eval_2 = jaccard_custom(keywords,rand_keywords)
-                if (eval_1 < args.max_value_hard_neg and cnt1 < args.max_hard_negs):
+                
+                evals.append({int(rand_id): float(eval_2)})
+                """if (eval_1 < args.max_value_hard_neg and cnt1 < args.max_hard_negs):
                     add_numbers_to_neg(sub_data, 'jaccard', [int(rand_id)])
                     cnt1 += 1
                    
@@ -98,19 +100,40 @@ def generate_pos_neg(filename):
                     jacc_custom_scores_rows.update({
                         int(rand_id): float(eval_2)
                     })
-                    cnt2 += 1
+                    cnt2 += 1"""
                     
                 """if cnt1_ce < args.max_nb_scores:
                     jacc_custom_scores_rows.update({
                         int(rand_id): float(eval_2)
                     })
                     cnt1_ce += 1"""
+            
+            
+            top_two = heapq.nlargest(2, evals, key=lambda x: list(x.values())[0])
+            list_lows = [d for d in evals if d not in top_two]
+            ids_low = [int(list(d.keys())[0]) for d in list_lows]
+            values_low = [float(list(d.values())[0]) for d in list_lows]
+            ids_high = [int(list(d.keys())[0]) for d in top_two]
+            values_high = [float(list(d.values())[0]) for d in top_two]
+            
+            for id_low, value_low in zip(ids_low, values_low):
+                add_numbers_to_neg(sub_data, 'jaccard_custom', [int(id_low)])
+                jacc_custom_scores_rows.update({
+                        int(id_low): float(value_low)
+                    })
+                
+            for id_high, value_high in zip(ids_high, values_high):
+                sub_data['pos'].extend([int(id_high)])
+                jacc_custom_scores_rows.update({
+                        int(id_high): float(value_high)
+                    })
+            
+            
             jacc_custom_scores[int(qid)] = jacc_custom_scores_rows
             data.append(sub_data)
             
             #append_dict_to_list(data, sub_data)
-
-    
+   
     hard_negs_path = os.path.join(os.getcwd(), 'hard_negs.json')
     hard_negs_path_gz = os.path.join(os.getcwd(), 'hard_negs.jsonl.gz')
     jacc_scores_path = os.path.join(os.getcwd(), 'jaccard_scores.pkl')
