@@ -59,7 +59,7 @@ def generate_binary_answer_file(keywords_file):
 
     # Read the CSV file and create a list of tuples with the desired format
     data_tuples = []
-    with open(keywords_file, 'r') as input_csv:
+    with open(keywords_file, 'r',encoding='utf-8') as input_csv:
         csv_reader = csv.reader(input_csv)
         for row in csv_reader:
           
@@ -68,7 +68,7 @@ def generate_binary_answer_file(keywords_file):
             data_tuples.append((row[0], '0', row[1], '1'))
 
     # Write the data to the output TSV file
-    with open(output_tsv_path, 'w', newline='') as output_tsv:
+    with open(output_tsv_path, 'w', newline='', encoding='utf-8') as output_tsv:
         tsv_writer = csv.writer(output_tsv, delimiter='\t')
        
         tsv_writer.writerows(data_tuples)

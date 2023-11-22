@@ -31,12 +31,12 @@ corpus_max_size = int(sys.argv[2])*1000 if len(sys.argv) >= 3 else 0
 model = SentenceTransformer(model_name)
 
 ### Data files
-data_folder = 'data_article'
+data_folder = 'data_articlev2'
 os.makedirs(data_folder, exist_ok=True)
 
 collection_filepath = os.path.join(data_folder, 'corpus.csv')
-dev_queries_file = os.path.join(data_folder, 'queries_dev_small.csv')
-qrels_filepath = os.path.join(data_folder, 'test.tsv')
+dev_queries_file = os.path.join(data_folder, 'queries.csv')
+qrels_filepath = os.path.join(data_folder, 'keywords.csv')
 
 ### Load data
 
@@ -54,9 +54,10 @@ with open(dev_queries_file, encoding='utf8') as fIn:
 
 
 # Load which passages are relevant for which queries
-with open(qrels_filepath) as fIn:
+with open(qrels_filepath, encoding='utf8') as fIn:
     for line in fIn:
-        qid, _, pid, _ = line.strip().split('\t')
+        row = line.strip().split(';')
+        qid, pid = row[0], row[1]
         if qid not in dev_queries:
             continue
 
@@ -89,8 +90,8 @@ logging.info("Corpus: {}".format(len(corpus)))
 
 ir_evaluator = evaluation.InformationRetrievalEvaluator(dev_queries, corpus, dev_rel_docs,
                                                         show_progress_bar=True,
-                                                        corpus_chunk_size=1000,
-                                                        precision_recall_at_k=[10, 100],
+                                                        corpus_chunk_size=2000,
+                                                        precision_recall_at_k=[10, 50, 100],
                                                         name="msmarco dev")
 
 ir_evaluator(model)

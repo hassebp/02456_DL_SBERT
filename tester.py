@@ -42,7 +42,7 @@ def run_tests():
         else:
             webscraping(filename)
     elif args.function == 'generate_bin':
-        generate_binary_answer_file('C:/Users/hasse/Skrivebord/02456_DL_SBERT/data_article/keywords.csv')
+        generate_binary_answer_file('C:/Users/hasse/Skrivebord/02456_DL_SBERT/data_articlev2/keywords.csv')
     elif args.function == 'split_queries':
         split_queries('C:/Users/hasse/Skrivebord/02456_DL_SBERT/data_articlev2/queries.csv')
         
