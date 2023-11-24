@@ -143,7 +143,7 @@ def generate_pos_neg(filename):
             jacc_custom_scores[int(qid)] = jacc_custom_scores_rows
             data.append(sub_data)
             
-            #append_dict_to_list(data, sub_data)
+  
    
     hard_negs_path = os.path.join(os.getcwd(), 'hard_negs.json')
     hard_negs_path_gz = os.path.join(os.getcwd(), 'hard_negs.jsonl.gz')

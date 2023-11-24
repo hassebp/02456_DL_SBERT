@@ -57,9 +57,11 @@ with open(dev_queries_file, encoding='utf8') as fIn:
 with open(qrels_filepath, encoding='utf8') as fIn:
     for line in fIn:
         row = line.strip().split(';')
-        qid, pid = row[0], row[1]
+        pid, qid = row[0], row[1]
+        
         if qid not in dev_queries:
             continue
+
 
         if qid not in dev_rel_docs:
             dev_rel_docs[qid] = set()
@@ -90,8 +92,8 @@ logging.info("Corpus: {}".format(len(corpus)))
 
 ir_evaluator = evaluation.InformationRetrievalEvaluator(dev_queries, corpus, dev_rel_docs,
                                                         show_progress_bar=True,
-                                                        corpus_chunk_size=2000,
-                                                        precision_recall_at_k=[10, 50, 100],
+                                                        corpus_chunk_size=5000,
+                                                        precision_recall_at_k=[10, 100],
                                                         name="msmarco dev")
 
 ir_evaluator(model)

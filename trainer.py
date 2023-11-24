@@ -203,9 +203,7 @@ class MSMARCODataset(Dataset):
             #print(f"This is qid: {qid}. This is pos id: {pos_id}")
         pos_score = self.ce_scores[qid][pos_id]
         neg_score = self.ce_scores[qid][neg_id]
-        #except KeyError as e:
-            #neg_score=0
-            #pos_score=0.1
+     
         
         return InputExample(texts=[query_text, pos_text, neg_text], label=pos_score-neg_score)
        
