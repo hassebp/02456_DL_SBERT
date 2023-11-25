@@ -74,7 +74,7 @@ with open(train_script_path, 'a') as fOut:
 
 
 ### Now we read the MS Marco dataset
-data_folder = 'data_articlev2'
+data_folder = 'data_article'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
@@ -137,8 +137,11 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
                 continue
 
             system_negs = data['neg'][system_name]
+            
             negs_added = 0
             for pid in system_negs:
+                print(qid, pid, data, ce_scores[qid])
+            
                 if ce_scores[qid][pid] > ce_score_threshold:
                     continue
 
@@ -147,7 +150,8 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
                     negs_added += 1
                     if negs_added >= num_negs_per_system:
                         break
-
+        print(queries[data['qid']], 'pos', pos_pids, 'neg', neg_pids)
+        p.p
         if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
             train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
 
