@@ -14,6 +14,11 @@ def preprocess_text(text):
     return cleaned_text
 
 
+def embedding_text(preprocessed_text):
+    # Transforms the preprocessed text to embeddings
+    embeddings = model.encode(preprocessed_text, convert_to_tensor=True)
+    return embeddings
+
 
 def split_queries(query_filename):
     
