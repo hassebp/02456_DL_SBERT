@@ -1,2 +1,4 @@
 venv/Lib
 output/
+train_bi-encoder-margin_mse-bert-base-uncased-batch_size_16-2023-11-12_14-04-21
+msmarco-data/
