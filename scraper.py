@@ -70,7 +70,7 @@ def save_to_csv(file_path, data):
     """
     Save a list of data rows to a CSV file.
     """
-    with open(file_path, mode='a+', newline='', encoding='utf-8') as file:
+    with open(file_path, mode='w+', newline='', encoding='utf-8') as file:
         writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerows(data)
 
@@ -107,7 +107,7 @@ def process_articles(urls, max_articles, save_interval):
                 queries_data.append([random_numbers[index], article_data['title']])
                 keywords_data.append([index, random_numbers[index], ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
 
-                if index % save_interval == 0 or index == len(urls) - 1:
+                if index % save_interval == 0 or index == len(urls):
                     yield corpus_data, queries_data, keywords_data
                     corpus_data, queries_data, keywords_data = [], [], []
 
@@ -144,14 +144,13 @@ def webscraping(folder, max_articles=105, save_interval=100, split_ratio={'train
 
     # Save the entire data
     for corpus_batch, queries_batch, keywords_batch in process_articles(urls, max_articles, save_interval):
-        print(len(queries_batch))
         save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_batch)
         save_to_csv(os.path.join(folder, 'queries.csv'), queries_batch)
         save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_batch)
 
     # Load and split the saved data
     for data_type in ['corpus', 'queries', 'keywords']:
-        with open(os.path.join(folder, f'{data_type}.csv'), 'r+', encoding="utf-8") as file:
+        with open(os.path.join(folder, f'{data_type}.csv'), 'r', encoding="utf-8") as file:
             data = list(csv.reader(file, delimiter=';'))
             train_data, valid_data, test_data = split_data(data, split_ratio)
             save_to_csv(os.path.join(train_folder, f'train_{data_type}.csv'), train_data)
