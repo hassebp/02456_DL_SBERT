@@ -92,24 +92,31 @@ def process_articles(urls, max_articles, save_interval):
     """
     Process each article URL and organize the scraped data.
     """
+    
+    x = max_articles
+    range_of_numbers = range(1, 1000000)  
+    random_numbers = random.sample(range_of_numbers, x)
+    
+    
     corpus_data, queries_data, keywords_data = [], [], []
 
     for index, url in tqdm(enumerate(urls, start=1), total=max_articles):
-        article_data = scrape_article(url)
-        if article_data:
-            # Process and append data to lists
-            corpus_data.append([index, preprocess_text(article_data['abstract'])])
-            queries_data.append([index, article_data['title']])
-            keywords_data.append([index, ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
+        if index < max_articles:
+            article_data = scrape_article(url)
+            if article_data:
+                # Process and append data to lists
+                corpus_data.append([index, preprocess_text(article_data['abstract'])])
+                queries_data.append([random_numbers[index], article_data['title']])
+                keywords_data.append([index, random_numbers[index] , ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
 
-            # Yield data at the save interval
-            if index % save_interval == 0 or index == len(urls):
-                yield corpus_data, queries_data, keywords_data
-                corpus_data, queries_data, keywords_data = [], [], []
+                # Yield data at the save interval
+                if index % save_interval == 0 or index == len(urls):
+                    yield corpus_data, queries_data, keywords_data
+                    corpus_data, queries_data, keywords_data = [], [], []
 
-    # Yield any remaining data
-    if corpus_data or queries_data or keywords_data:
-        yield corpus_data, queries_data, keywords_data
+        # Yield any remaining data
+        if corpus_data or queries_data or keywords_data:
+            yield corpus_data, queries_data, keywords_data
 
 def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
     article_links = get_article_links(years, max_pages_pr_year, max_articles)
@@ -122,6 +129,8 @@ def webscraping(folder, max_articles=105, save_interval=10, split_ratio={'train'
     """
     Main webscraping function orchestrating the scraping process.
     """
+    
+    
     os.makedirs(folder, exist_ok=True)
     
     # Define train, test, validation folders:
@@ -137,7 +146,7 @@ def webscraping(folder, max_articles=105, save_interval=10, split_ratio={'train'
         data_list = list(csv.reader(file))
     urls = [row[1] for row in data_list][:max_articles]
 
-    # Saves the entire data
+    # Save the entire data
     for corpus_batch, queries_batch, keywords_batch in process_articles(urls, max_articles, save_interval):
         save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_batch)
         save_to_csv(os.path.join(folder, 'queries.csv'), queries_batch)
