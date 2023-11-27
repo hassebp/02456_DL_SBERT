@@ -127,7 +127,7 @@ def webscraping(filename, max_articles=105, save_interval=10):
         if index < max_articles:
             article_data = scrape_article(url)
             if article_data:
-                preprocessed_title = preprocess_text(article_data['title'])
+                preprocessed_title = article_data['title']
                 preprocessed_abstract = preprocess_text(article_data['abstract'])
                 preprocessed_keywords = [preprocess_text(keyword) for keyword in article_data['keywords']]
     
