@@ -1,8 +1,9 @@
 import torch
 import argparse
-from scraper import webscraping, generate_urls
+from scraper import webscraping
 from datetime import datetime
 from preprocessing import generate_binary_answer_file, split_queries
+import os
 
 def check_cuda_availability():
     print('what')
@@ -21,7 +22,7 @@ def run_tests():
     parser.add_argument("--years", required=False, default=None, nargs='+', type=int, help="Interval of the years wanted for generating urls, example 2018 2022")
     parser.add_argument("--max_pages_pr_year", required=False, default=None, type=int, help="Maximum number of pages to loop through pr year, 1 page is 10 articles")
     parser.add_argument("--max_articles", required=False, default=None, type=int, help="Max number of articles in total")
-    parser.add_argument("--filename", default=f'generic_filename_{datetime.now().strftime("%Y%m%dT%H%M%S")}')
+    parser.add_argument("--filename", default="data")
     args = parser.parse_args()
 
     # Call the specified function
@@ -42,9 +43,11 @@ def run_tests():
         else:
             webscraping(filename)
     elif args.function == 'generate_bin':
-        generate_binary_answer_file('C:/Users/hasse/Skrivebord/02456_DL_SBERT/data_articlev2/keywords.csv')
+        os.makedirs('data_articlev2', exist_ok=True)
+        generate_binary_answer_file('data_articlev2/keywords.csv')
     elif args.function == 'split_queries':
-        split_queries('C:/Users/hasse/Skrivebord/02456_DL_SBERT/data_articlev2/queries.csv')
+        os.makedirs('data_articlev2', exist_ok=True)
+        split_queries('data_articlev2/queries.csv')
         
     else:
         print(f"Error: Unknown function '{args.function}'")

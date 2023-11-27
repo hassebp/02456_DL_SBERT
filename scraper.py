@@ -10,88 +10,106 @@ from tqdm import tqdm
 import re
 
 
-# Function to get links to all articles within a given range of yearspage={page}&
-def get_article_links(years, max_pages_pr_year, max_articles):
-    start_year, end_year = years[0], years[1]
-    links = []
+def get_article_links(years, max_pages_per_year, max_articles):
+    """
+    Retrieve links to articles within a specified range of years.
+    """
+    start_year, end_year = years
+    links = set()
+    base_url = "https://findit.dtu.dk/en/catalog?type=article_journal_article"
     for year in range(start_year, end_year + 1):
-        # type=article_journal just to only get the journals
-        base_url = f"https://findit.dtu.dk/en/catalog?type=article_journal_article"
-        url_year = f"{base_url}&year={year}"
-        for page in range(1, max_pages_pr_year + 1):
-            
-            url = f"{url_year}&page={page}"
+        for page in range(1, max_pages_per_year + 1):
+            url = f"{base_url}&year={year}&page={page}"
             response = requests.get(url)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
-                article_links = soup.find_all('a', {'class': 'result__title'})
-
-                # Extract and print the URLs
-                for link in article_links:
-                    if len(links) >= max_articles:
-                        break
-                    article_url = link['href']
-                    links.append(article_url)
-                # Should remove if any duplicates somehow?
-                links = list(set(links))  
-        # Dunno if you can get banned by IP from DTU Findit if you make too many requests? So I just put in a timer
-        time.sleep(0.5)
-    return links
-
-def scrape_article(url):
-    """ Scrape information from a single article page. """
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"Failed to fetch {url}")
-        return None
-    
-    soup = BeautifulSoup(response.text, 'html.parser')
-    title = soup.find('h1', {'itemprop': 'name'})
-    abstract = soup.find('div', {'class': 'show__abstract is-long is-initial-letter'})
-
-    if not title or not abstract:
-        return None
-
-    title = title.text.strip()
-    abstract = abstract.text.strip()
-    keywords = extract_keywords(soup)
-
-    if len(keywords) < 5 or len(abstract) < 500:
-        return None
-
-    return {'title': title, 'abstract': abstract, 'keywords': keywords}
-
+                article_links = [link['href'] for link in soup.find_all('a', {'class': 'result__title'})]
+                links.update(article_links)
+                if len(links) >= max_articles:
+                    return list(links)[:max_articles]
+            time.sleep(0.5)  # Delay to prevent IP ban
+    return list(links)
 
 def extract_keywords(soup):
-    """ Extract keywords from the BeautifulSoup object. """
+    """
+    Extract and preprocess keywords from a BeautifulSoup object.
+    """
     keywords = []
     for identifier in ['Keywords', 'Other keywords']:
         keyword_tag = soup.find('strong', text=identifier)
         if keyword_tag:
             p_tag = keyword_tag.find_next('p')
             keywords.extend(a_tag.text for a_tag in p_tag.find_all('a'))
-           
-    # Preprocess keywords, so we eliminate duplicates, spacing, and unforeseen characters
+
     unique_words = set()
     for k in keywords:
-        # Remove non-alphanumeric characters except spaces and semicolons
         cleaned_keyword = re.sub(r'[^\w\s;]', '', k)
-
-        # Split on semicolons and strip spaces
-        for word in cleaned_keyword.split(';'):
-            word = word.strip()  # Remove leading and trailing spaces
-            meaningful_words = [w for w in word.split() if len(w) > 1]  # Only words with more than one character
-            unique_words.update(meaningful_words)
-    
+        unique_words.update(word.strip() for word in cleaned_keyword.split(';') if len(word.strip()) > 1)
     return list(unique_words)
 
 
-def write_to_csv(folder, filename, data_rows, mode='a+'):
-    """ Write a list of data rows to a CSV file. """
-    with open(os.path.join(folder, filename), mode=mode, newline='', encoding='utf-8') as file:
-        writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerows(data_rows)  # writerows is used to write multiple rows
+def scrape_article(url):
+    """
+    Scrape information from a single article page.
+    """
+    response = requests.get(url)
+    if response.status_code != 200:
+        return None
+    
+    soup = BeautifulSoup(response.text, 'html.parser')
+    title = soup.find('h1', {'itemprop': 'name'}).text.strip() if soup.find('h1', {'itemprop': 'name'}) else None
+    abstract = soup.find('div', {'class': 'show__abstract is-long is-initial-letter'}).text.strip() if soup.find('div', {'class': 'show__abstract is-long is-initial-letter'}) else None
+    keywords = extract_keywords(soup) if title and abstract else None
 
+    if keywords and len(keywords) >= 5 and len(abstract) >= 500:
+        return {'title': title, 'abstract': abstract, 'keywords': keywords}
+    return None
+
+
+def save_to_csv(file_path, data):
+    """
+    Save a list of data rows to a CSV file.
+    """
+    with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        writer.writerows(data)
+
+
+def split_data(data, split_ratio):
+    """
+    Split data into training, validation, and test sets.
+    """
+    random.shuffle(data)
+    train_size = int(len(data) * split_ratio['train'])
+    valid_size = int(len(data) * split_ratio['valid'])
+    train_data = data[:train_size]
+    valid_data = data[train_size:train_size + valid_size]
+    test_data = data[train_size + valid_size:]
+    return train_data, valid_data, test_data
+
+
+def process_articles(urls, max_articles, save_interval):
+    """
+    Process each article URL and organize the scraped data.
+    """
+    corpus_data, queries_data, keywords_data = [], [], []
+
+    for index, url in tqdm(enumerate(urls, start=1), total=max_articles):
+        article_data = scrape_article(url)
+        if article_data:
+            # Process and append data to lists
+            corpus_data.append([index, preprocess_text(article_data['abstract'])])
+            queries_data.append([index, article_data['title']])
+            keywords_data.append([index, ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
+
+            # Yield data at the save interval
+            if index % save_interval == 0 or index == len(urls):
+                yield corpus_data, queries_data, keywords_data
+                corpus_data, queries_data, keywords_data = [], [], []
+
+    # Yield any remaining data
+    if corpus_data or queries_data or keywords_data:
+        yield corpus_data, queries_data, keywords_data
 
 def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
     article_links = get_article_links(years, max_pages_pr_year, max_articles)
@@ -100,63 +118,40 @@ def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
         for index, url in enumerate(article_links, start=1):
             writer.writerow([index, url])
 
-
-def webscraping(filename, max_articles=105, save_interval=10):
-    """ Main webscraping function to orchestrate the scraping process. """
-    file_path = os.path.join(os.getcwd(), "generic_filename_20231114T202027.csv")
-    folder = 'data_' + filename
+def webscraping(folder, max_articles=105, save_interval=10, split_ratio={'train': 0.7, 'valid': 0.15, 'test': 0.15}):
+    """
+    Main webscraping function orchestrating the scraping process.
+    """
     os.makedirs(folder, exist_ok=True)
     
-    ### Generates a random number for qid
-    x = max_articles
-    range_of_numbers = range(1, 1000000)  
-    random_numbers = random.sample(range_of_numbers, x)
-    
-    
-    # Initialize lists to store batches of scraped data
-    batch_corpus_data = []
-    batch_queries_data = []
-    batch_keywords_data = []
-    
+    # Define train, test, validation folders:
+    train_folder = os.path.join(folder, 'train')
+    valid_folder = os.path.join(folder, 'valid')
+    test_folder = os.path.join(folder, 'test')
+    os.makedirs(train_folder, exist_ok=True)
+    os.makedirs(valid_folder, exist_ok=True)
+    os.makedirs(test_folder, exist_ok=True)
+
+    file_path = os.path.join(os.getcwd(), "generic_filename_20231114T202027.csv")
     with open(file_path, 'r') as file:
         data_list = list(csv.reader(file))
-
     urls = [row[1] for row in data_list][:max_articles]
 
-    for index, url in tqdm(enumerate(urls, start=1)):
-        if index < max_articles:
-            article_data = scrape_article(url)
-            if article_data:
-                preprocessed_title = article_data['title']
-                preprocessed_abstract = preprocess_text(article_data['abstract'])
-                preprocessed_keywords = [preprocess_text(keyword) for keyword in article_data['keywords']]
-    
-                # Append the processed data to the respective batch lists
-                batch_corpus_data.append([index, preprocessed_abstract])
-                batch_queries_data.append([random_numbers[index], preprocessed_title])
-                
-                preprocessed_keywords = [word for word in preprocessed_keywords if len(word) > 1]  # Only words with more than one character
-                batch_keywords_data.append([index, random_numbers[index], ';'.join(preprocessed_keywords)])
-            
-            # Save data at the save interval
-            if index % save_interval == 0 or index == len(urls):
-                write_to_csv(folder, 'corpus.csv', batch_corpus_data, mode='a+')
-                write_to_csv(folder, 'queries.csv', batch_queries_data, mode='a+')
-                write_to_csv(folder, 'keywords.csv', batch_keywords_data, mode='a+')
-    
-                # Clear the batch lists after saving
-                batch_corpus_data = []
-                batch_queries_data = []
-                batch_keywords_data = []
-    
-            if index % 2500 == 0:
-                time.sleep(1)
-        else:
-            break
-    # Save any remaining data
-    if batch_corpus_data:
-        write_to_csv(folder, 'corpus.csv', batch_corpus_data, mode='a+')
-    if batch_queries_data:
-        write_to_csv(folder, 'queries.csv', batch_queries_data, mode='a+')
-    if batch_keywords_data:
-        write_to_csv(folder, 'keywords.csv', batch_keywords_data, mode='a+')
+    # Saves the entire data
+    for corpus_batch, queries_batch, keywords_batch in process_articles(urls, max_articles, save_interval):
+        save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_batch)
+        save_to_csv(os.path.join(folder, 'queries.csv'), queries_batch)
+        save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_batch)
+
+    # Load and split the saved data
+    for data_type in ['corpus', 'queries', 'keywords']:
+        with open(os.path.join(folder, f'{data_type}.csv'), 'r') as file:
+            data = list(csv.reader(file, delimiter=';'))
+            train_data, valid_data, test_data = split_data(data, split_ratio)
+            save_to_csv(os.path.join(train_folder, f'train_{data_type}.csv'), train_data)
+            save_to_csv(os.path.join(valid_folder, f'valid_{data_type}.csv'), valid_data)
+            save_to_csv(os.path.join(test_folder, f'test_{data_type}.csv'), test_data)
+
+# Example usage
+if __name__ == "__main__":
+    webscraping("article_data", max_articles=105, save_interval=10, split_ratio={'train': 0.7, 'valid': 0.15, 'test': 0.15})
