@@ -8,6 +8,7 @@ from preprocessing import preprocess_text
 import random
 from tqdm import tqdm
 import re
+import numpy as np
 
 
 def get_article_links(years, max_pages_per_year, max_articles):
@@ -75,16 +76,25 @@ def save_to_csv(file_path, data):
         writer.writerows(data)
 
 
-def split_data(data, split_ratio):
+def split_data(data, split_ratio, seed=12345):
     """
-    Split data into training, validation, and test sets.
+    Split data into training, validation, and test sets using synchronized indices.
     """
-    random.shuffle(data)
-    train_size = int(len(data) * split_ratio['train'])
-    valid_size = int(len(data) * split_ratio['valid'])
-    train_data = data[:train_size]
-    valid_data = data[train_size:train_size + valid_size]
-    test_data = data[train_size + valid_size:]
+    np.random.seed(seed)  # Ensures reproducibility
+    indices = np.arange(len(data))
+    np.random.shuffle(indices)
+    
+    train_size = int(len(indices) * split_ratio['train'])
+    valid_size = int(len(indices) * split_ratio['valid'])
+
+    train_indices = indices[:train_size]
+    valid_indices = indices[train_size:train_size + valid_size]
+    test_indices = indices[train_size + valid_size:]
+
+    train_data = [data[i] for i in train_indices]
+    valid_data = [data[i] for i in valid_indices]
+    test_data = [data[i] for i in test_indices]
+
     return train_data, valid_data, test_data
 
 
@@ -157,6 +167,4 @@ def webscraping(folder, max_articles=105, save_interval=100, split_ratio={'train
             save_to_csv(os.path.join(valid_folder, f'valid_{data_type}.csv'), valid_data)
             save_to_csv(os.path.join(test_folder, f'test_{data_type}.csv'), test_data)
 
-# Example usage
-if __name__ == "__main__":
-    webscraping("article_data", max_articles=105, save_interval=10, split_ratio={'train': 0.7, 'valid': 0.15, 'test': 0.15})
+

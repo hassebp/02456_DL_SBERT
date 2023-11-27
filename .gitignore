@@ -2,4 +2,5 @@ venv/Lib
 output/
 train_bi-encoder-margin_mse-bert-base-uncased-batch_size_16-2023-11-12_14-04-21
 msmarco-data/
-cross-encoder-ms-marco-MiniLM-L-6-v2-scores.pkl.gz
+cross-encoder-ms-marco-MiniLM-L-6-v2-scores.pkl.gz/
+data/
