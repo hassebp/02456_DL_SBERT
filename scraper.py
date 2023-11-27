@@ -70,7 +70,7 @@ def save_to_csv(file_path, data):
     """
     Save a list of data rows to a CSV file.
     """
-    with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+    with open(file_path, mode='a+', newline='', encoding='utf-8') as file:
         writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerows(data)
 
@@ -97,26 +97,23 @@ def process_articles(urls, max_articles, save_interval):
     range_of_numbers = range(1, 1000000)  
     random_numbers = random.sample(range_of_numbers, x)
     
-    
     corpus_data, queries_data, keywords_data = [], [], []
 
-    for index, url in tqdm(enumerate(urls, start=1), total=max_articles):
+    for index, url in tqdm(enumerate(urls, start=0), total=max_articles):
         if index < max_articles:
             article_data = scrape_article(url)
             if article_data:
-                # Process and append data to lists
                 corpus_data.append([index, preprocess_text(article_data['abstract'])])
                 queries_data.append([random_numbers[index], article_data['title']])
-                keywords_data.append([index, random_numbers[index] , ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
+                keywords_data.append([index, random_numbers[index], ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
 
-                # Yield data at the save interval
-                if index % save_interval == 0 or index == len(urls):
+                if index % save_interval == 0 or index == len(urls) - 1:
                     yield corpus_data, queries_data, keywords_data
                     corpus_data, queries_data, keywords_data = [], [], []
 
-        # Yield any remaining data
-        if corpus_data or queries_data or keywords_data:
-            yield corpus_data, queries_data, keywords_data
+    if corpus_data or queries_data or keywords_data:
+        yield corpus_data, queries_data, keywords_data
+
 
 def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
     article_links = get_article_links(years, max_pages_pr_year, max_articles)
@@ -125,11 +122,10 @@ def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
         for index, url in enumerate(article_links, start=1):
             writer.writerow([index, url])
 
-def webscraping(folder, max_articles=105, save_interval=10, split_ratio={'train': 0.7, 'valid': 0.15, 'test': 0.15}):
+def webscraping(folder, max_articles=105, save_interval=100, split_ratio={'train': 0.7, 'valid': 0.15, 'test': 0.15}):
     """
     Main webscraping function orchestrating the scraping process.
     """
-    
     
     os.makedirs(folder, exist_ok=True)
     
@@ -142,19 +138,20 @@ def webscraping(folder, max_articles=105, save_interval=10, split_ratio={'train'
     os.makedirs(test_folder, exist_ok=True)
 
     file_path = os.path.join(os.getcwd(), "generic_filename_20231114T202027.csv")
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding="utf-8") as file:
         data_list = list(csv.reader(file))
     urls = [row[1] for row in data_list][:max_articles]
 
     # Save the entire data
     for corpus_batch, queries_batch, keywords_batch in process_articles(urls, max_articles, save_interval):
+        print(len(queries_batch))
         save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_batch)
         save_to_csv(os.path.join(folder, 'queries.csv'), queries_batch)
         save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_batch)
 
     # Load and split the saved data
     for data_type in ['corpus', 'queries', 'keywords']:
-        with open(os.path.join(folder, f'{data_type}.csv'), 'r') as file:
+        with open(os.path.join(folder, f'{data_type}.csv'), 'r+', encoding="utf-8") as file:
             data = list(csv.reader(file, delimiter=';'))
             train_data, valid_data, test_data = split_data(data, split_ratio)
             save_to_csv(os.path.join(train_folder, f'train_{data_type}.csv'), train_data)
