@@ -71,7 +71,7 @@ def save_to_csv(file_path, data):
     """
     Save a list of data rows to a CSV file.
     """
-    with open(file_path, mode='w+', newline='', encoding='utf-8') as file:
+    with open(file_path, mode='a+', newline='', encoding='utf-8') as file:
         writer = csv.writer(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerows(data)
 
@@ -97,32 +97,70 @@ def split_data(data, split_ratio, seed=12345):
 
     return train_data, valid_data, test_data
 
+from tqdm.auto import tqdm
 
-def process_articles(urls, max_articles, save_interval):
+def process_articles(urls, folder, target_article_count, save_interval):
     """
-    Process each article URL and organize the scraped data.
+    Process each article URL, organize the scraped data, and save it directly until target_article_count are saved.
     """
     
-    x = max_articles
+    x = target_article_count
     range_of_numbers = range(1, 1000000)  
     random_numbers = random.sample(range_of_numbers, x)
     
+    # Initialize lists to store the scraped data
     corpus_data, queries_data, keywords_data = [], [], []
+    saved_count = 0  # Number of saved articles that meet the criteria
+    
+    # Initialize tqdm progress bar
+    pbar = tqdm(total=target_article_count, desc='Processing Articles')
 
-    for index, url in tqdm(enumerate(urls, start=0), total=max_articles):
-        if index < max_articles:
+    # Loop through URLs and continue processing articles until target_article_count are saved
+    article_urls_iter = iter(urls)
+    while saved_count < target_article_count:
+        try:
+            url = next(article_urls_iter)
             article_data = scrape_article(url)
             if article_data:
-                corpus_data.append([index, preprocess_text(article_data['abstract'])])
-                queries_data.append([random_numbers[index], article_data['title']])
-                keywords_data.append([index, random_numbers[index], ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
+                # If the article meets the criteria, process and append to lists
+                corpus_data.append([saved_count, preprocess_text(article_data['abstract'])])
+                queries_data.append([random_numbers[saved_count], article_data['title']])
+                keywords_data.append([saved_count, random_numbers[saved_count], ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
 
-                if index % save_interval == 0 or index == len(urls):
-                    yield corpus_data, queries_data, keywords_data
+                saved_count += 1  # Increment the count of saved articles
+                pbar.update(1)  # Update tqdm progress bar
+
+                # Save data at the save interval or if we've reached the target number of articles
+                if saved_count % save_interval == 0 or saved_count == target_article_count:
+                    save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_data)
+                    save_to_csv(os.path.join(folder, 'queries.csv'), queries_data)
+                    save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_data)
+                    
+                    # Clear the batch lists after saving
                     corpus_data, queries_data, keywords_data = [], [], []
 
+            # Provide a small delay to prevent hammering the server with requests
+            if saved_count % 23 == 0:
+                time.sleep(1.7)
+
+        except StopIteration:
+            # If there are no more URLs to process, break out of the loop
+            break
+
+    # Save any remaining data not saved due to interval
     if corpus_data or queries_data or keywords_data:
-        yield corpus_data, queries_data, keywords_data
+        save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_data)
+        save_to_csv(os.path.join(folder, 'queries.csv'), queries_data)
+        save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_data)
+
+    # Close the tqdm progress bar
+    pbar.close()
+
+    # Print the total number of saved articles that met the criteria
+    print(f"Total articles processed and saved: {saved_count}")
+
+
+
 
 
 def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
@@ -152,11 +190,9 @@ def webscraping(folder, max_articles=105, save_interval=100, split_ratio={'train
         data_list = list(csv.reader(file))
     urls = [row[1] for row in data_list][:max_articles]
 
-    # Save the entire data
-    for corpus_batch, queries_batch, keywords_batch in process_articles(urls, max_articles, save_interval):
-        save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_batch)
-        save_to_csv(os.path.join(folder, 'queries.csv'), queries_batch)
-        save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_batch)
+    # Call process_articles with the folder parameter
+    process_articles(urls, folder, max_articles, save_interval)
+
 
     # Load and split the saved data
     for data_type in ['corpus', 'queries', 'keywords']:
@@ -168,3 +204,8 @@ def webscraping(folder, max_articles=105, save_interval=100, split_ratio={'train
             save_to_csv(os.path.join(test_folder, f'test_{data_type}.csv'), test_data)
 
 
+"""
+# Example usage
+if __name__ == "__main__":
+    webscraping("article_data", max_articles=105, save_interval=10, split_ratio={'train': 0.7, 'valid': 0.15, 'test': 0.15})
+"""
