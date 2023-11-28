@@ -138,7 +138,7 @@ def process_articles(urls, folder, target_article_count, save_interval):
 
     # Iterate through URLs until we get enough valid articles
     url_index = 0  # Current index in the URLs list
-    while articles_processed < target_article_count:
+    while articles_processed < target_article_count and url_index < len(urls):
         url = urls[url_index % len(urls)]  # Cycle through URLs
         article_data = scrape_article(url)
         if article_data:
