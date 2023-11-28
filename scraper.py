@@ -3,12 +3,14 @@ import os
 import csv
 import time
 import requests
+from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
 from preprocessing import preprocess_text
 import random
 from tqdm import tqdm
 import re
 import numpy as np
+
 
 
 def get_article_links(years, max_pages_per_year, max_articles):
@@ -49,21 +51,43 @@ def extract_keywords(soup):
     return list(unique_words)
 
 
-def scrape_article(url):
+def scrape_article(url, max_retries=10, backoff_factor=1):
     """
-    Scrape information from a single article page.
+    Scrape information from a single article page with retry mechanism for HTTP errors.
     """
-    response = requests.get(url)
-    if response.status_code != 200:
-        return None
+    retries = 0
     
-    soup = BeautifulSoup(response.text, 'html.parser')
-    title = soup.find('h1', {'itemprop': 'name'}).text.strip() if soup.find('h1', {'itemprop': 'name'}) else None
-    abstract = soup.find('div', {'class': 'show__abstract is-long is-initial-letter'}).text.strip() if soup.find('div', {'class': 'show__abstract is-long is-initial-letter'}) else None
-    keywords = extract_keywords(soup) if title and abstract else None
+    articles = 0
+    while retries < max_retries:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # Will raise HTTPError for status codes 4xx/5xx
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            title = soup.find('h1', {'itemprop': 'name'}).text.strip() if soup.find('h1', {'itemprop': 'name'}) else None
+            abstract = soup.find('div', {'class': 'show__abstract is-long is-initial-letter'}).text.strip() if soup.find('div', {'class': 'show__abstract is-long is-initial-letter'}) else None
+            keywords = extract_keywords(soup) if title and abstract else None
 
-    if keywords and len(keywords) >= 5 and len(abstract) >= 500:
-        return {'title': title, 'abstract': abstract, 'keywords': keywords}
+            if keywords and len(keywords) >= 5 and len(abstract) >= 500:
+                articles += 1
+                return {"quantity": articles, 'title': title, 'abstract': abstract, 'keywords': keywords}
+
+            return None
+
+        except HTTPError as e:
+            if response.status_code == 429:  # Too Many Requests
+                wait_time = backoff_factor * (2 ** retries)
+                print(f"Too many requests. Retrying in {wait_time} seconds.")
+                time.sleep(wait_time)
+                retries += 1
+            else:
+                print(f"Failed to fetch {url} due to HTTP error: {e}")
+                return None
+        except Exception as e:
+            print(f"Failed to fetch {url} due to error: {e}")
+            return None
+
+    print(f"Max retries exceeded for {url}")
     return None
 
 
@@ -101,51 +125,46 @@ from tqdm.auto import tqdm
 
 def process_articles(urls, folder, target_article_count, save_interval):
     """
-    Process each article URL, organize the scraped data, and save it directly until target_article_count are saved.
+    Process each article URL and organize the scraped data until the target number of articles is reached.
     """
-    
-    x = target_article_count
-    range_of_numbers = range(1, 1000000)  
-    random_numbers = random.sample(range_of_numbers, x)
+    random_numbers = random.sample(range(1, 1000000), len(urls))
     
     # Initialize lists to store the scraped data
     corpus_data, queries_data, keywords_data = [], [], []
-    saved_count = 0  # Number of saved articles that meet the criteria
-    
+    articles_processed = 0  # Count of articles that meet the criteria
+
     # Initialize tqdm progress bar
     pbar = tqdm(total=target_article_count, desc='Processing Articles')
 
-    # Loop through URLs and continue processing articles until target_article_count are saved
-    article_urls_iter = iter(urls)
-    while saved_count < target_article_count:
-        try:
-            url = next(article_urls_iter)
-            article_data = scrape_article(url)
-            if article_data:
-                # If the article meets the criteria, process and append to lists
-                corpus_data.append([saved_count, preprocess_text(article_data['abstract'])])
-                queries_data.append([random_numbers[saved_count], article_data['title']])
-                keywords_data.append([saved_count, random_numbers[saved_count], ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
+    # Iterate through URLs until we get enough valid articles
+    url_index = 0  # Current index in the URLs list
+    while articles_processed < target_article_count:
+        url = urls[url_index % len(urls)]  # Cycle through URLs
+        article_data = scrape_article(url)
+        if article_data:
+            # Process and append to lists
+            corpus_data.append([url_index + 1, preprocess_text(article_data['abstract'])])
+            queries_data.append([random_numbers[url_index % len(urls)], article_data['title']])
+            keywords_data.append([url_index + 1, random_numbers[url_index % len(urls)], ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
 
-                saved_count += 1  # Increment the count of saved articles
-                pbar.update(1)  # Update tqdm progress bar
+            articles_processed += 1  # Update the count of processed articles
+            pbar.update(1)  # Update tqdm progress bar
 
-                # Save data at the save interval or if we've reached the target number of articles
-                if saved_count % save_interval == 0 or saved_count == target_article_count:
-                    save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_data)
-                    save_to_csv(os.path.join(folder, 'queries.csv'), queries_data)
-                    save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_data)
-                    
-                    # Clear the batch lists after saving
-                    corpus_data, queries_data, keywords_data = [], [], []
+            # Save data at the save interval
+            if articles_processed % save_interval == 0 or articles_processed == target_article_count:
+                save_to_csv(os.path.join(folder, 'corpus.csv'), corpus_data)
+                save_to_csv(os.path.join(folder, 'queries.csv'), queries_data)
+                save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_data)
+                corpus_data, queries_data, keywords_data = [], [], []  # Reset the batch lists after saving
 
-            # Provide a small delay to prevent hammering the server with requests
-            if saved_count % 23 == 0:
-                time.sleep(1.7)
+        url_index += 1  # Move to the next URL
 
-        except StopIteration:
-            # If there are no more URLs to process, break out of the loop
-            break
+        # Optional: Add delay to prevent server overload
+        if url_index % 23 == 0:
+            time.sleep(2)
+
+    # Close the tqdm progress bar
+    pbar.close()
 
     # Save any remaining data not saved due to interval
     if corpus_data or queries_data or keywords_data:
@@ -153,15 +172,7 @@ def process_articles(urls, folder, target_article_count, save_interval):
         save_to_csv(os.path.join(folder, 'queries.csv'), queries_data)
         save_to_csv(os.path.join(folder, 'keywords.csv'), keywords_data)
 
-    # Close the tqdm progress bar
-    pbar.close()
-
-    # Print the total number of saved articles that met the criteria
-    print(f"Total articles processed and saved: {saved_count}")
-
-
-
-
+    print(f"Total articles processed and saved: {articles_processed}")
 
 def generate_urls(years, filename, max_pages_pr_year=20, max_articles=1000):
     article_links = get_article_links(years, max_pages_pr_year, max_articles)
@@ -190,7 +201,7 @@ def webscraping(folder, max_articles=105, save_interval=100, split_ratio={'train
         data_list = list(csv.reader(file))
     urls = [row[1] for row in data_list][:max_articles]
 
-    # Call process_articles with the folder parameter
+    # Call process_articles with the folder parameter and target_article_count
     process_articles(urls, folder, max_articles, save_interval)
 
 
