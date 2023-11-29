@@ -56,3 +56,19 @@ def get_info(corpus_id):
     title = queries[title_qid]
     
     return title, url_list[int(corpus_id)]
+
+def get_keywords(corpus_id):
+    """
+    Get title and url from corpus id
+    """
+    root_path = os.getcwd()
+    keywords = {}        #dict in the format: query_id -> query. Stores all training keywords
+    keywords_filepath = os.path.join(root_path, 'data_articlev2/keywords.csv')
+
+    with open(keywords_filepath, 'r', encoding='utf8') as fIn:
+        for line in fIn:
+            row = line.strip().split(";")
+            pid, qid, keyword = row[0], row[1], row[2:]
+            keywords[int(pid)] = keyword
+    
+    return keywords[int(corpus_id)]

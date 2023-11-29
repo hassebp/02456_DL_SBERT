@@ -43,8 +43,8 @@ def run_tests():
         else:
             webscraping(filename)
     elif args.function == 'generate_bin':
-        os.makedirs('data_articlev2', exist_ok=True)
-        generate_binary_answer_file('data_articlev2/keywords.csv')
+        #os.makedirs('data_articlev2', exist_ok=True)
+        generate_binary_answer_file('data/valid/valid_keywords.csv')
     elif args.function == 'split_queries':
         os.makedirs('data_articlev2', exist_ok=True)
         split_queries('data_articlev2/queries.csv')
