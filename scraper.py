@@ -144,7 +144,7 @@ def process_articles(urls, folder, target_article_count, save_interval):
         if article_data:
             # Process and append to lists
             corpus_data.append([url_index + 1, preprocess_text(article_data['abstract'])])
-            queries_data.append([random_numbers[url_index % len(urls)], article_data['title']])
+            queries_data.append([random_numbers[url_index % len(urls)], preprocess_text(article_data['title']), article_data['title']])
             keywords_data.append([url_index + 1, random_numbers[url_index % len(urls)], ';'.join([preprocess_text(keyword) for keyword in article_data['keywords']])])
 
             articles_processed += 1  # Update the count of processed articles
@@ -199,7 +199,7 @@ def webscraping(folder, max_articles=105, save_interval=100, split_ratio={'train
     file_path = os.path.join(os.getcwd(), "generic_filename_20231114T202027.csv")
     with open(file_path, 'r', encoding="utf-8") as file:
         data_list = list(csv.reader(file))
-    urls = [row[1] for row in data_list][:max_articles]
+    urls = [row[1] for row in data_list]
 
     # Call process_articles with the folder parameter and target_article_count
     process_articles(urls, folder, max_articles, save_interval)
