@@ -80,7 +80,7 @@ with open(train_script_path, 'a') as fOut:
 """
 DATA VALIDATION LOADING
 """
-valid_data_folder = 'datav2/valid'
+"""valid_data_folder = 'datav2/valid'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 val_corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
@@ -116,7 +116,7 @@ with open(keywords_filepath, 'r', encoding='utf8') as fIn:
         pid, qid, keywordss = row[0], row[1], row[2:]
         qid = int(qid)
         val_keywords[qid] = keywordss
-
+"""
 
 """
 DATA TRAINING LOADING
