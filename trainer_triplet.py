@@ -14,6 +14,7 @@ from shutil import copyfile
 import pickle
 import argparse
 import torch, numpy
+from preprocessing import preprocess_text
 
 #### Just some code to print debug information to stdout
 logging.basicConfig(format='%(asctime)s - %(message)s',
@@ -75,15 +76,17 @@ with open(train_script_path, 'a') as fOut:
     fOut.write("\n\n# Script was called via:\n#python " + " ".join(sys.argv))
 
 
-### Now we read the MS Marco dataset
-data_folder = 'datav2/train'
 
+"""
+DATA VALIDATION LOADING
+"""
+valid_data_folder = 'datav2/valid'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 val_corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
-val_corpus_path = 'datav2/valid/valid_corpus.csv'
+val_corpus_path = os.path.join(valid_data_folder, 'valid_corpus.csv')
 
-logging.info("Read corpus: corpus.csv")
+logging.info("Loading validation: validation corpus")
 with open(val_corpus_path, 'r', encoding='utf8') as fIn:
     for line in fIn:
         qid, passage = line.strip().split(";")
@@ -92,9 +95,9 @@ with open(val_corpus_path, 'r', encoding='utf8') as fIn:
         
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 val_queries = {}         #dict in the format: passage_id -> passage. Stores all existent passages
-val_queries_path = 'datav2/valid/valid_queries.csv'
+val_queries_path =  os.path.join(valid_data_folder, 'valid_queries.csv')
 
-logging.info("Read queries: queries.csv")
+logging.info("Loading validation: validation queries")
 with open(val_queries_path, 'r', encoding='utf8') as fIn:
     for line in fIn:
         try:
@@ -102,14 +105,30 @@ with open(val_queries_path, 'r', encoding='utf8') as fIn:
             qid = int(qid)
             val_queries[qid] = passage
         except:
-           pass
-      
+           continue
+
+val_keywords = {}
+keywords_filepath =  os.path.join(valid_data_folder, 'valid_keywords.csv')
+logging.info("Loading validation: validation keywords")
+with open(keywords_filepath, 'r', encoding='utf8') as fIn:
+    for line in fIn:
+        row = line.strip().split(";")
+        pid, qid, keywordss = row[0], row[1], row[2:]
+        qid = int(qid)
+        val_keywords[qid] = keywordss
+
+
+"""
+DATA TRAINING LOADING
+"""
+
+train_data_folder = 'data_articlev2'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 train_corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
-collection_filepath = os.path.join(data_folder, 'train_corpus.csv')
+collection_filepath = os.path.join(train_data_folder, 'corpus.csv')
 
-logging.info("Read corpus: corpus.csv")
+logging.info("Loading trianing: training corpus")
 with open(collection_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
         pid, passage = line.strip().split(";")
@@ -119,43 +138,44 @@ with open(collection_filepath, 'r', encoding='utf8') as fIn:
 
 ### Read the train queries, store in queries dict
 queries = {}        #dict in the format: query_id -> query. Stores all training queries
-queries_filepath = os.path.join(data_folder, 'train_queries.csv')
-
+queries_filepath = os.path.join(train_data_folder, 'queries.csv')
+logging.info("Loading training: training queries")
 with open(queries_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
-        try:
-            qid, passage = line.strip().split(";")
-            qid = int(qid)
-            queries[qid] = passage
-        except:
-           pass
+        qid, passage = line.strip().split(";")
+        qid = int(qid)
+        queries[qid] = passage
+        
 
-
-keywords = {}
-keywords_filepath = os.path.join(data_folder, 'train_keywords.csv')
+train_keywords = {}
+keywords_filepath = os.path.join(train_data_folder, 'keywords.csv')
+logging.info("Loading training: keywords corpus")
 with open(keywords_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
         row = line.strip().split(";")
         pid, qid, keywordss = row[0], row[1], row[2:]
         qid = int(qid)
-        keywords[qid] = keywordss
+        train_keywords[qid] = keywordss
 
-ce_scores_file = os.path.join('datav2', 'jaccard_scores.pkl')
+
+
+"""ce_scores_file = os.path.join('datav2', 'jaccard_scores.pkl')
 logging.info("Load Jaccard scores dict")
 with open(ce_scores_file, 'rb') as fIn:
-    ce_scores = pickle.load(fIn)
+    ce_scores = pickle.load(fIn)"""
     
-
-hard_negatives_filepath = os.path.join('datav2', 'hard_negs.jsonl.gz')
-logging.info("Read hard negatives train file")
 train_queries = {}
+hard_negatives_filepath = os.path.join('data_articlev2', 'hard_negs.jsonl.gz')
+logging.info("Read hard negatives train file")
+
 negs_to_use = None
 with gzip.open(hard_negatives_filepath, 'rt') as fIn:
     for line in tqdm.tqdm(fIn):
         if max_passages > 0 and len(train_queries) >= max_passages:
             break
+        
         data = json.loads(line)
-       
+        
         #Get the positive passage ids
         pos_pids = data['pos']
         
@@ -182,44 +202,35 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
                         break
                     
         if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
-            queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
+            train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
                 
-dev_rel_docs = {}       #Mapping qid => set with relevant pids
 
-qrels_filepath = 'data/valid/valid_keywords'
-# Load which passages are relevant for which queries
-with open(qrels_filepath, encoding='utf8') as fIn:
-    for line in fIn:
-        row = line.strip().split(';')
-        pid, qid = row[0], row[1]
-      
-        if qid not in dev_rel_docs:
-            dev_rel_docs[qid] = set()
-        dev_rel_docs[qid].add(pid)
+"""
+SETUP DATASET
+"""
 
 logging.info("Train queries: {}".format(len(train_queries)))
 
 # We create a custom MSMARCO dataset that returns triplets (query, positive, negative)
 # on-the-fly based on the information from the mined-hard-negatives jsonl file.
 class MSMARCODataset(Dataset):
-    def __init__(self, queries, corpus, ce_scores):
+    def __init__(self, queries, corpus, keywords):
         self.queries = queries
         self.queries_ids = list(queries.keys())
+        self.keywords = keywords
         self.corpus = corpus
-        self.ce_scores = ce_scores
         
-
         for qid in self.queries:
             self.queries[qid]['pos'] = list(self.queries[qid]['pos'])
             self.queries[qid]['neg'] = list(self.queries[qid]['neg'])
             random.shuffle(self.queries[qid]['neg'])
-
+            
     def __getitem__(self, item):
         query = self.queries[self.queries_ids[item]]
+        query_text = query['query']
         qid = query['qid']
-        query_text = torch.cat(query['query'] + keywords[qid], dim=0)
-        print(query_text) 
-        p.p
+        keywords = ' '.join(self.keywords[qid])
+        query_text = query_text + keywords.replace('"',' ')
         if len(query['pos']) > 0:
             pos_id = query['pos'].pop(0)    #Pop positive and add at end
             pos_text = self.corpus[pos_id]
@@ -234,31 +245,82 @@ class MSMARCODataset(Dataset):
         neg_text = self.corpus[neg_id]
         query['neg'].append(neg_id)
        
-     
-        
         return InputExample(texts=[query_text, pos_text, neg_text], label=1)
-       
-            
-        
+    
 
     def __len__(self):
         return len(self.queries)
 
+
+"""
+SETUP VALIDATION
+"""
+
+
+class GenerateValidationTriplets():
+    def __init__(self, validation_queries, validation_corpus, validation_keywords):
+        self.queries = validation_queries
+        self.keywords = validation_keywords
+        self.corpus = validation_corpus
+        self.queries = dict(random.sample(self.queries.items(), int(len(self.queries) * 0.1)))
+        self.queries_ids = list(self.queries.keys())
+        
+        for qid in self.queries:
+            self.queries[qid]['pos'] = list(self.queries[qid]['pos'])
+            self.queries[qid]['neg'] = list(self.queries[qid]['neg'])
+            random.shuffle(self.queries[qid]['neg'])
+            
+    def getdata(self):
+        val_anchor = []
+        pos_sentence = []
+        neg_sentence = []
+        for item in range(len(self.queries)):
+            query = self.queries[self.queries_ids[item]]
+            query_text = query['query']
+            qid = query['qid']
+            keywords = ' '.join(self.keywords[qid])
+            query_text = query_text + keywords.replace('"',' ')
+            if len(query['pos']) > 0:
+                pos_id = query['pos'].pop(0)    #Pop positive and add at end
+                pos_text = self.corpus[pos_id]
+                query['pos'].append(pos_id)
+            else:   #We only have negatives, use two negs
+                pos_id = query['neg'].pop(0)    #Pop negative and add at end
+                pos_text = self.corpus[pos_id]
+                query['neg'].append(pos_id)
+
+            #Get a negative passage
+            neg_id = query['neg'].pop(0)    #Pop negative and add at end
+            neg_text = self.corpus[neg_id]
+            query['neg'].append(neg_id)
+            
+            val_anchor.append(query_text)
+            pos_sentence.append(pos_text)
+            neg_sentence.append(neg_text)
+        
+        return val_anchor, pos_sentence, neg_sentence
+    
+    
+val_anchor, pos_sentence, neg_sentence = GenerateValidationTriplets(train_queries, train_corpus, train_keywords).getdata()
+"""
+TRAIN MODEL
+"""
 # For training the SentenceTransformer model, we need a dataset, a dataloader, and a loss used for training.
-train_dataset = MSMARCODataset(queries=train_queries, corpus=train_corpus, ce_scores=ce_scores)
+train_dataset = MSMARCODataset(queries=train_queries, corpus=train_corpus, keywords=train_keywords)
 train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size, drop_last=True)
 train_loss = losses.TripletLoss(model=model)
 
 # Train the model
 model.fit(train_objectives=[(train_dataloader, train_loss)],
-          evaluator=evaluation.InformationRetrievalEvaluator(queries=val_queries, corpus=val_corpus, relevant_docs=dev_rel_docs),
-          evaluation_steps=args.eval_steps,
+          evaluator=evaluation.TripletEvaluator(anchors=val_anchor, positives=pos_sentence, negatives=neg_sentence),
+          #evaluation_steps=args.eval_steps,
           epochs=num_epochs,
           warmup_steps=args.warmup_steps,
           use_amp=True,
           checkpoint_path=model_save_path,
           checkpoint_save_steps=500,
           optimizer_params = {'lr': args.lr},
+          output_path='test/'
           )
 
 # Train latest model

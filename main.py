@@ -127,7 +127,7 @@ def search_articles(query, model, corpus_embeddings, corpus_ids, top_k=5):
    
   
     top_results = torch.topk(cos_scores, k=top_k)
-    #pos_key = corpus_embeddings[int(top_results[1][0])].numpy()
+   #pos_key = corpus_embeddings[int(top_results[1][0])].numpy()
     
     print("\nTop {} most similar articles in the corpus:".format(top_k))
     for score, idx in zip(top_results[0], top_results[1]):
