@@ -10,7 +10,7 @@ from sentence_transformers import  LoggingHandler, SentenceTransformer, evaluati
 import logging
 import sys
 import os
-import tarfile
+import tarfile, pickle
 from itertools import islice
 #### Just some code to print debug information to stdout
 logging.basicConfig(format='%(asctime)s - %(message)s',
@@ -31,29 +31,29 @@ corpus_max_size = int(sys.argv[2])*1000 if len(sys.argv) >= 3 else 0
 model = SentenceTransformer(model_name)
 
 ### Data files
-data_folder = 'data_articlev2'
+data_folder = 'datav2'
 os.makedirs(data_folder, exist_ok=True)
 
-collection_filepath = os.path.join(data_folder, 'corpus.csv')
-dev_queries_file = os.path.join(data_folder, 'queries.csv')
-qrels_filepath = os.path.join(data_folder, 'keywords.csv')
+collection_filepath = os.path.join(data_folder, 'valid/valid_corpus.csv')
+dev_queries_file = os.path.join(data_folder, 'valid/valid_queries.csv')
+qrels_filepath = os.path.join(data_folder, 'valid/valid_keywords.csv')
 
 ### Load data
 
-corpus = {}             #Our corpus pid => passage
+val_corpus = {}             #Our corpus pid => passage
 dev_queries = {}        #Our dev queries. qid => query
 dev_rel_docs = {}       #Mapping qid => set with relevant pids
 needed_pids = set()     #Passage IDs we need
 needed_qids = set()     #Query IDs we need
 
-# Load the 6980 dev queries
+"""# Load the 6980 dev queries
 with open(dev_queries_file, encoding='utf8') as fIn:
     for line in fIn:
         qid, query = line.strip().split(";")
-        dev_queries[qid] = query.strip()
+        dev_queries[qid] = query.strip()"""
 
 
-# Load which passages are relevant for which queries
+"""# Load which passages are relevant for which queries
 with open(qrels_filepath, encoding='utf8') as fIn:
     for line in fIn:
         row = line.strip().split(';')
@@ -69,7 +69,7 @@ with open(qrels_filepath, encoding='utf8') as fIn:
 
         needed_pids.add(pid)
         needed_qids.add(qid)
-
+"""
 
 # Read passages
 with open(collection_filepath, encoding='utf8') as fIn:
@@ -77,22 +77,35 @@ with open(collection_filepath, encoding='utf8') as fIn:
         pid, passage = line.strip().split(";")
         passage = passage
 
-        if pid in needed_pids or corpus_max_size <= 0 or len(corpus) <= corpus_max_size:
-            corpus[pid] = passage.strip()
+        if pid in needed_pids or corpus_max_size <= 0 or len(val_corpus) <= corpus_max_size:
+            val_corpus[pid] = passage.strip()
 
-
+val_scores_file = os.path.join(data_folder, 'val_jaccard_scores.pkl')
+logging.info("Load Jaccard scores dict validation")
+with open(val_scores_file, 'rb') as fIn:
+     val_scores_load = pickle.load(fIn)
 
 
 #corpus = dict(islice(corpus.items(), 5000))
-
+val_sentence1 = []
+val_sentence2 = []
+val_scores = []
+val_corpus_ids = list(val_corpus.keys())
+for pid in val_corpus_ids:
+    sentence1 = val_corpus[pid]
+    for passage_id, score in zip(val_scores_load[pid].keys(), val_scores_load[pid].values()):
+        sentence2 = val_corpus[passage_id]
+        val_sentence1.append(sentence1)
+        val_sentence2.append(sentence2)
+        val_scores.append(score)
 
 ## Run evaluator
 logging.info("Queries: {}".format(len(dev_queries)))
-logging.info("Corpus: {}".format(len(corpus)))
+logging.info("Corpus: {}".format(len(val_corpus)))
 
-ir_evaluator = evaluation.InformationRetrievalEvaluator(dev_queries, corpus, dev_rel_docs,
+ir_evaluator = evaluation.EmbeddingSimilarityEvaluator(val_sentence1, val_sentence2, val_scores,
                                                         show_progress_bar=True,
-                                                        corpus_chunk_size=5000,
+                                                        corpus_chunk_size=1000,
                                                         precision_recall_at_k=[10, 100],
                                                         name="msmarco dev")
 

@@ -94,7 +94,7 @@ keywords_filepath = os.path.join(data_folder, 'keywords.csv')
 with open(keywords_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
         row = line.strip().split(";")
-        pid, qid = row[0], row[1]
+        pid, qid, keywords = row[0], row[1], row[2:]
         qid = int(qid)
         pid = int(pid)
         mapping_q_p[qid] = pid

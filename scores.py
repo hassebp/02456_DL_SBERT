@@ -40,9 +40,9 @@ def jaccard_custom(list1,list2):
 
 
 
-filepath_corpus = os.path.join(os.getcwd(), "data/corpus.csv")
-filepath_query = os.path.join(os.getcwd(), "data/queries.csv")
-filepath_keywords = os.path.join(os.getcwd(), 'data/valid/valid_keywords.csv')
+filepath_corpus = os.path.join(os.getcwd(), "datav2/corpus.csv")
+filepath_query = os.path.join(os.getcwd(), "datav2/queries.csv")
+filepath_keywords = os.path.join(os.getcwd(), 'datav2/train/train_keywords.csv')
 def add_numbers_to_neg(my_dict, model_key, numbers):
     if model_key in my_dict['neg']:
         my_dict['neg'][model_key].extend(numbers)
@@ -60,6 +60,7 @@ def generate_pos_neg(filename):
     Args:
         filename (_type_): _description_
     """
+    print('here')
     data = []
     jacc_custom_scores = {}
     with open(filename, 'r', newline='',encoding='utf-8') as csvfile:
@@ -82,9 +83,7 @@ def generate_pos_neg(filename):
          
             
             random_rows = [r for r in random.sample(rows, args.max_nb_scores)]
-            cnt1 = 0
-            cnt2 = 0
-            cnt1_ce = 0
+        
             jacc_custom_scores_rows = {}
             
             ### Adding the pos
@@ -103,22 +102,7 @@ def generate_pos_neg(filename):
                 eval_2 = jaccard_custom(keywords,rand_keywords)
                 
                 evals.append({int(rand_id): float(eval_2)})
-                """if (eval_1 < args.max_value_hard_neg and cnt1 < args.max_hard_negs):
-                    add_numbers_to_neg(sub_data, 'jaccard', [int(rand_id)])
-                    cnt1 += 1
-                   
-                if (eval_2 < args.max_value_hard_neg and cnt2 < args.max_hard_negs):
-                    add_numbers_to_neg(sub_data, 'jaccard_custom', [int(rand_id)])
-                    jacc_custom_scores_rows.update({
-                        int(rand_id): float(eval_2)
-                    })
-                    cnt2 += 1
-                    
-                if cnt1_ce < args.max_nb_scores:
-                    jacc_custom_scores_rows.update({
-                        int(rand_id): float(eval_2)
-                    })
-                    cnt1_ce += 1"""
+              
             
             
             top_two = heapq.nlargest(2, evals, key=lambda x: list(x.values())[0]) # Just taking the two largest numbers for pos ID
@@ -146,10 +130,10 @@ def generate_pos_neg(filename):
             
   
    
-    hard_negs_path = os.path.join(os.getcwd(), 'data/hard_negs.json')
-    hard_negs_path_gz = os.path.join(os.getcwd(), 'data/hard_negs.jsonl.gz')
-    jacc_scores_path = os.path.join(os.getcwd(), 'data/jaccard_scores.pkl')
-    jacc_scores_paths = os.path.join(os.getcwd(), 'data/jaccard_scores.json')
+    hard_negs_path = os.path.join(os.getcwd(), 'datav2/hard_negs.json')
+    hard_negs_path_gz = os.path.join(os.getcwd(), 'datav2/hard_negs.jsonl.gz')
+    jacc_scores_path = os.path.join(os.getcwd(), 'datav2/jaccard_scores.pkl')
+    jacc_scores_paths = os.path.join(os.getcwd(), 'datav2/jaccard_scores.json')
     
     with gzip.open(hard_negs_path_gz, 'wt') as jsonl_gz_file:
         for my_dict in data:
@@ -210,8 +194,8 @@ def generate_pos_neg_pairwise(filename):
             
   
    
-    jacc_scores_path = os.path.join(os.getcwd(), 'data/val_jaccard_scores.pkl')
-    jacc_scores_paths = os.path.join(os.getcwd(), 'data/val_jaccard_scores.json')
+    jacc_scores_path = os.path.join(os.getcwd(), 'datav2/jaccard_scores.pkl')
+    jacc_scores_paths = os.path.join(os.getcwd(), 'datav2/jaccard_scores.json')
     
 
     # Open the file in binary read mode and load the dictionary
@@ -221,7 +205,7 @@ def generate_pos_neg_pairwise(filename):
     with open(jacc_scores_paths, 'w') as json_file:
         json.dump(jacc_custom_scores, json_file)
         
-generate_pos_neg_pairwise(filepath_keywords)
+generate_pos_neg(filepath_keywords)
 
 
 

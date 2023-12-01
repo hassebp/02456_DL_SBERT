@@ -75,7 +75,7 @@ with open(train_script_path, 'a') as fOut:
 
 
 ### Now we read the MS Marco dataset
-data_folder = 'data'
+data_folder = 'datav2'
 
 
 val_corpus = {}
@@ -120,7 +120,7 @@ class MSMARCODataset(Dataset):
 
 
     def __len__(self):
-        return len(self.corpus)*2 ## Try multiplying with 50 future
+        return len(self.corpus) ## Try multiplying with 50 future
 
 # For training the SentenceTransformer model, we need a dataset, a dataloader, and a loss used for training.
 train_dataset = MSMARCODataset(corpus=corpus, ce_scores=ce_scores)

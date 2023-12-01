@@ -13,6 +13,7 @@ import random
 from shutil import copyfile
 import pickle
 import argparse
+import torch, numpy
 
 #### Just some code to print debug information to stdout
 logging.basicConfig(format='%(asctime)s - %(message)s',
@@ -75,11 +76,12 @@ with open(train_script_path, 'a') as fOut:
 
 
 ### Now we read the MS Marco dataset
-data_folder = 'data/train'
+data_folder = 'datav2/train'
+
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 val_corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
-val_corpus_path = 'data/valid/valid_corpus.csv'
+val_corpus_path = 'datav2/valid/valid_corpus.csv'
 
 logging.info("Read corpus: corpus.csv")
 with open(val_corpus_path, 'r', encoding='utf8') as fIn:
@@ -90,14 +92,18 @@ with open(val_corpus_path, 'r', encoding='utf8') as fIn:
         
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 val_queries = {}         #dict in the format: passage_id -> passage. Stores all existent passages
-val_queries_path = 'data/valid/valid_queries.csv'
+val_queries_path = 'datav2/valid/valid_queries.csv'
 
 logging.info("Read queries: queries.csv")
 with open(val_queries_path, 'r', encoding='utf8') as fIn:
     for line in fIn:
-        pid, passage = line.strip().split(";")
-        pid = int(pid)
-        val_queries[pid] = passage
+        try:
+            qid, passage = line.strip().split(";")
+            qid = int(qid)
+            val_queries[qid] = passage
+        except:
+           pass
+      
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 train_corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
@@ -117,37 +123,30 @@ queries_filepath = os.path.join(data_folder, 'train_queries.csv')
 
 with open(queries_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
-        qid, query = line.strip().split(";")
+        try:
+            qid, passage = line.strip().split(";")
+            qid = int(qid)
+            queries[qid] = passage
+        except:
+           pass
+
+
+keywords = {}
+keywords_filepath = os.path.join(data_folder, 'train_keywords.csv')
+with open(keywords_filepath, 'r', encoding='utf8') as fIn:
+    for line in fIn:
+        row = line.strip().split(";")
+        pid, qid, keywordss = row[0], row[1], row[2:]
         qid = int(qid)
-        queries[qid] = query
+        keywords[qid] = keywordss
 
-
-ce_scores_file = os.path.join('data', 'jaccard_scores.pkl')
+ce_scores_file = os.path.join('datav2', 'jaccard_scores.pkl')
 logging.info("Load Jaccard scores dict")
 with open(ce_scores_file, 'rb') as fIn:
     ce_scores = pickle.load(fIn)
     
-# Load a dict (qid, pid) -> ce_score that maps query-ids (qid) and paragraph-ids (pid)
-# to the CrossEncoder score computed by the cross-encoder/ms-marco-MiniLM-L-6-v2 model
 
-# As training data we use hard-negatives that have been mined using various systems
-
-
-### Split for training and validation
-#total_entries = len(queries)
-#split_point = int(0.7 * total_entries)
-
-##train_queries = dict(list(queries.items())[:split_point])
-#val_queries = dict(list(queries.items())[split_point:])
-
-#validation_filepath = os.path.join(data_folder, 'validation.csv')
-# Save the dictionary to a JSON file
-#with open('validation_queries.pkl', 'wb') as pickle_file:
-#    pickle.dump(val_queries, pickle_file)
-
-#print('Dictionary saved successfully.')
-
-hard_negatives_filepath = os.path.join('data', 'hard_negs.jsonl.gz')
+hard_negatives_filepath = os.path.join('datav2', 'hard_negs.jsonl.gz')
 logging.info("Read hard negatives train file")
 train_queries = {}
 negs_to_use = None
@@ -217,9 +216,10 @@ class MSMARCODataset(Dataset):
 
     def __getitem__(self, item):
         query = self.queries[self.queries_ids[item]]
-        query_text = query['query']
         qid = query['qid']
-       
+        query_text = torch.cat(query['query'] + keywords[qid], dim=0)
+        print(query_text) 
+        p.p
         if len(query['pos']) > 0:
             pos_id = query['pos'].pop(0)    #Pop positive and add at end
             pos_text = self.corpus[pos_id]
@@ -233,10 +233,7 @@ class MSMARCODataset(Dataset):
         neg_id = query['neg'].pop(0)    #Pop negative and add at end
         neg_text = self.corpus[neg_id]
         query['neg'].append(neg_id)
-        #try:
-            #print(f"This is qid: {qid}. This is pos id: {pos_id}")
-        pos_score = self.ce_scores[qid][pos_id]
-        neg_score = self.ce_scores[qid][neg_id]
+       
      
         
         return InputExample(texts=[query_text, pos_text, neg_text], label=1)
@@ -250,7 +247,7 @@ class MSMARCODataset(Dataset):
 # For training the SentenceTransformer model, we need a dataset, a dataloader, and a loss used for training.
 train_dataset = MSMARCODataset(queries=train_queries, corpus=train_corpus, ce_scores=ce_scores)
 train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size, drop_last=True)
-train_loss = losses.MarginMSELoss(model=model)
+train_loss = losses.TripletLoss(model=model)
 
 # Train the model
 model.fit(train_objectives=[(train_dataloader, train_loss)],
