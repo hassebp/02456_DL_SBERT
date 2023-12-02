@@ -8,7 +8,7 @@ from scraper import scrape_article
 from tqdm import tqdm
 from torch import Tensor
 from postprocessing import embed, get_info, get_keywords
-
+from scipy.spatial.distance import euclidean
 
 def load_model(model_path):
     # Function for loading trained S-Bert model
@@ -123,14 +123,19 @@ def search_articles(query, model, corpus_embeddings, corpus_ids, top_k=5):
     #print(corpus_embeddings.shape)
     #query_embedding = query_embedding.squeeze(0)
     # Compute cosine similarities
-    cos_scores = util.cos_sim(query_embedding, corpus_embeddings)[0]
+ 
+    cos_scores = util.dot_score(query_embedding, corpus_embeddings)[0]
+    distances = [euclidean(query_embedding, validation_embedding) for validation_embedding in corpus_embeddings]
+
+    # Get the indices of the top 5 closest embeddings
+    top_indices = numpy.argsort(distances)[:5]
    
-  
-    top_results = torch.topk(cos_scores, k=top_k)
+    top_distances = [distances[i] for i in top_indices]
+    #top_results = torch.topk(cos_scores, k=top_k)
    #pos_key = corpus_embeddings[int(top_results[1][0])].numpy()
     
     print("\nTop {} most similar articles in the corpus:".format(top_k))
-    for score, idx in zip(top_results[0], top_results[1]):
+    for score, idx in zip(top_distances, top_indices):
         title, url = get_info(corpus_ids[idx])
         #score = jaccard_custom(pos_key, corpus_embeddings[int(idx)].numpy())
         print("Title: {} \n (Score: {:.4f}) \n url: {} \n".format(title, score, url))
@@ -140,9 +145,9 @@ def search_articles(query, model, corpus_embeddings, corpus_ids, top_k=5):
 
 
 def main():
-    corpus_path = 'datav2/train/train_corpus.csv'
-    model_path = "C:/Users/hasse/Skrivebord/02456_DL_SBERT/train_bi-encoder-margin_mse-bert-base-uncased-batch_size_64-2023-11-30_17-14-58"
-    corpus_embeddings_path = os.path.join(os.getcwd(), 'datav2/embeddings')
+    corpus_path = 'data_articlev2/corpus.csv'
+    model_path = "C:/Users/hasse/Skrivebord/02456_DL_SBERT/16500"
+    corpus_embeddings_path = os.path.join(os.getcwd(), 'data_articlev2/embeddings')
     corpus_path = os.path.join(os.getcwd(), corpus_path)
     model = load_model(model_path)
     corpus_ids = []
@@ -154,7 +159,7 @@ def main():
     if not os.path.exists(corpus_embeddings_path + '.npy'):
         embed(corpus_path, model, corpus_embeddings_path)
   
-    corpus_embeddings = torch.from_numpy(numpy.load('C:/Users/hasse/Skrivebord/02456_DL_SBERT/datav2/embeddings.npy'))
+    corpus_embeddings = torch.from_numpy(numpy.load('C:/Users/hasse/Skrivebord/02456_DL_SBERT/data_articlev2/embeddings.npy'))
     
 
     while True:

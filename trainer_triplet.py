@@ -80,7 +80,7 @@ with open(train_script_path, 'a') as fOut:
 """
 DATA VALIDATION LOADING
 """
-"""valid_data_folder = 'datav2/valid'
+valid_data_folder = 'data/valid'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 val_corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
@@ -101,11 +101,12 @@ logging.info("Loading validation: validation queries")
 with open(val_queries_path, 'r', encoding='utf8') as fIn:
     for line in fIn:
         try:
-            qid, passage = line.strip().split(";")
+            qid, passage, q = line.strip().split(";")
             qid = int(qid)
             val_queries[qid] = passage
         except:
-           continue
+            continue
+      
 
 val_keywords = {}
 keywords_filepath =  os.path.join(valid_data_folder, 'valid_keywords.csv')
@@ -116,17 +117,17 @@ with open(keywords_filepath, 'r', encoding='utf8') as fIn:
         pid, qid, keywordss = row[0], row[1], row[2:]
         qid = int(qid)
         val_keywords[qid] = keywordss
-"""
+
 
 """
 DATA TRAINING LOADING
 """
 
-train_data_folder = 'data_articlev2'
+train_data_folder = 'data/train'
 
 #### Read the corpus files, that contain all the passages. Store them in the corpus dict
 train_corpus = {}         #dict in the format: passage_id -> passage. Stores all existent passages
-collection_filepath = os.path.join(train_data_folder, 'corpus.csv')
+collection_filepath = os.path.join(train_data_folder, 'train_corpus.csv')
 
 logging.info("Loading trianing: training corpus")
 with open(collection_filepath, 'r', encoding='utf8') as fIn:
@@ -138,17 +139,21 @@ with open(collection_filepath, 'r', encoding='utf8') as fIn:
 
 ### Read the train queries, store in queries dict
 queries = {}        #dict in the format: query_id -> query. Stores all training queries
-queries_filepath = os.path.join(train_data_folder, 'queries.csv')
+queries_filepath = os.path.join(train_data_folder, 'train_queries.csv')
 logging.info("Loading training: training queries")
 with open(queries_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
-        qid, passage = line.strip().split(";")
-        qid = int(qid)
-        queries[qid] = passage
+        try:
+            qid, passage, q = line.strip().split(";")
+            qid = int(qid)
+            queries[qid] = passage
+        except:
+            continue
+       
         
 
 train_keywords = {}
-keywords_filepath = os.path.join(train_data_folder, 'keywords.csv')
+keywords_filepath = os.path.join(train_data_folder, 'train_keywords.csv')
 logging.info("Loading training: keywords corpus")
 with open(keywords_filepath, 'r', encoding='utf8') as fIn:
     for line in fIn:
@@ -157,16 +162,12 @@ with open(keywords_filepath, 'r', encoding='utf8') as fIn:
         qid = int(qid)
         train_keywords[qid] = keywordss
 
-
-
-"""ce_scores_file = os.path.join('datav2', 'jaccard_scores.pkl')
-logging.info("Load Jaccard scores dict")
-with open(ce_scores_file, 'rb') as fIn:
-    ce_scores = pickle.load(fIn)"""
     
 train_queries = {}
-hard_negatives_filepath = os.path.join('data_articlev2', 'hard_negs.jsonl.gz')
+hard_negatives_filepath = os.path.join('data', 'hard_negs.jsonl.gz')
 logging.info("Read hard negatives train file")
+
+train_keys = queries.keys()
 
 negs_to_use = None
 with gzip.open(hard_negatives_filepath, 'rt') as fIn:
@@ -175,6 +176,9 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
             break
         
         data = json.loads(line)
+        
+        if not data['qid'] in queries:
+            continue
         
         #Get the positive passage ids
         pos_pids = data['pos']
@@ -255,15 +259,58 @@ class MSMARCODataset(Dataset):
 """
 SETUP VALIDATION
 """
+valid_queries = {}
+hard_negatives_filepath = os.path.join('data', 'valid_hard_negs.jsonl.gz')
+logging.info("Read hard negatives valid file")
+
+negs_to_use = None
+with gzip.open(hard_negatives_filepath, 'rt') as fIn:
+    for line in tqdm.tqdm(fIn):
+        if max_passages > 0 and len(valid_queries) >= max_passages:
+            break
+        
+        data = json.loads(line)
+        
+        if not data['qid'] in val_queries:
+            continue
+        
+        #Get the positive passage ids
+        pos_pids = data['pos']
+        
+        #Get the hard negatives
+        neg_pids = set()
+        if negs_to_use is None:
+            if args.negs_to_use is not None:    #Use specific system for negatives
+                negs_to_use = args.negs_to_use.split(",")
+            else:   #Use all systems
+                negs_to_use = list(data['neg'].keys())
+            logging.info("Using negatives from the following systems:", negs_to_use)
+
+        for system_name in negs_to_use:
+            if system_name not in data['neg']:
+                continue
+
+            system_negs = data['neg'][system_name]
+            negs_added = 0
+            for pid in system_negs:
+                if pid not in neg_pids:
+                    neg_pids.add(pid)
+                    negs_added += 1
+                    if negs_added >= num_negs_per_system:
+                        break
+                    
+        if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
+            valid_queries[data['qid']] = {'qid': data['qid'], 'query': val_queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
+                
 
 
 class GenerateValidationTriplets():
     def __init__(self, validation_queries, validation_corpus, validation_keywords):
         self.queries = validation_queries
+        self.queries_ids = list(self.queries.keys())
         self.keywords = validation_keywords
         self.corpus = validation_corpus
-        self.queries = dict(random.sample(self.queries.items(), int(len(self.queries) * 0.1)))
-        self.queries_ids = list(self.queries.keys())
+   
         
         for qid in self.queries:
             self.queries[qid]['pos'] = list(self.queries[qid]['pos'])
@@ -301,7 +348,7 @@ class GenerateValidationTriplets():
         return val_anchor, pos_sentence, neg_sentence
     
     
-val_anchor, pos_sentence, neg_sentence = GenerateValidationTriplets(train_queries, train_corpus, train_keywords).getdata()
+val_anchor, pos_sentence, neg_sentence = GenerateValidationTriplets(valid_queries, val_corpus, val_keywords).getdata()
 """
 TRAIN MODEL
 """
@@ -317,8 +364,8 @@ model.fit(train_objectives=[(train_dataloader, train_loss)],
           epochs=num_epochs,
           warmup_steps=args.warmup_steps,
           use_amp=True,
-          checkpoint_path=model_save_path,
-          checkpoint_save_steps=500,
+          #checkpoint_path=model_save_path,
+          #checkpoint_save_steps=500,
           optimizer_params = {'lr': args.lr},
           output_path='test/'
           )

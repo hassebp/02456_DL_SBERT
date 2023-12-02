@@ -40,9 +40,9 @@ def jaccard_custom(list1,list2):
 
 
 
-filepath_corpus = os.path.join(os.getcwd(), "datav2/corpus.csv")
-filepath_query = os.path.join(os.getcwd(), "datav2/queries.csv")
-filepath_keywords = os.path.join(os.getcwd(), 'datav2/train/train_keywords.csv')
+filepath_corpus = os.path.join(os.getcwd(), "data/corpus.csv")
+filepath_query = os.path.join(os.getcwd(), "data/queries.csv")
+filepath_keywords = os.path.join(os.getcwd(), 'data/valid/valid_keywords.csv')
 def add_numbers_to_neg(my_dict, model_key, numbers):
     if model_key in my_dict['neg']:
         my_dict['neg'][model_key].extend(numbers)
@@ -130,10 +130,10 @@ def generate_pos_neg(filename):
             
   
    
-    hard_negs_path = os.path.join(os.getcwd(), 'datav2/hard_negs.json')
-    hard_negs_path_gz = os.path.join(os.getcwd(), 'datav2/hard_negs.jsonl.gz')
-    jacc_scores_path = os.path.join(os.getcwd(), 'datav2/jaccard_scores.pkl')
-    jacc_scores_paths = os.path.join(os.getcwd(), 'datav2/jaccard_scores.json')
+    hard_negs_path = os.path.join(os.getcwd(), 'data/valid_hard_negs.json')
+    hard_negs_path_gz = os.path.join(os.getcwd(), 'data/valid_hard_negs.jsonl.gz')
+    jacc_scores_path = os.path.join(os.getcwd(), 'data/valid_jaccard_scores.pkl')
+    jacc_scores_paths = os.path.join(os.getcwd(), 'data/valid_jaccard_scores.json')
     
     with gzip.open(hard_negs_path_gz, 'wt') as jsonl_gz_file:
         for my_dict in data:
