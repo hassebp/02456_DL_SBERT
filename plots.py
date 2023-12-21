@@ -6,9 +6,11 @@ import transformers
 from sentence_transformers import SentenceTransformer
 from postprocessing import embed
 import os
+import pandas as pd
 import numpy
 from scipy.spatial.distance import euclidean
 from tqdm import tqdm
+import seaborn as sns
 sns.set(style="whitegrid")
 import torch
 
@@ -88,16 +90,21 @@ model = 'test'
 
 
 def plot_accuracies(filepath):
-    df = pandas.read_csv(filepath, sep=',')
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv(filepath, sep=',')
 
     # Set the Seaborn style
     sns.set(style="whitegrid")
 
     # Plot the accuracies using Seaborn
     plt.figure(figsize=(10, 6))
+    
+    # Euclidean accuracy
     sns.lineplot(x='epoch', y=100*df['accuracy_euclidean'], data=df, label='Euclidean', linewidth=3)
-    ##sns.lineplot(x='epoch', y=100*df['accuracy_manhattan'], data=df, label='Manhattan', linewidth=3)
-    #sns.lineplot(x='epoch', y=100*df['accuracy_cosinus'], data=df, label='Cosine', linewidth=3)
+    
+    # Uncomment the following lines if you want to include other accuracy metrics
+    # sns.lineplot(x='epoch', y=100*df['accuracy_manhattan'], data=df, label='Manhattan', linewidth=3)
+    # sns.lineplot(x='epoch', y=100*df['accuracy_cosinus'], data=df, label='Cosine', linewidth=3)
 
     # Set plot limits and labels
     plt.ylim([0, 100])
@@ -106,8 +113,10 @@ def plot_accuracies(filepath):
     plt.legend(fontsize=18)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
+    
     # Show the plot
     plt.show()
+
 
 
 
@@ -201,8 +210,8 @@ def plot_nicestuff():
     print("This is mean accuracy for top 5:", numpy.mean(top_5))
     print("This is mean accuracy for top 10:", numpy.mean(top_10))
     
-plot_nicestuff()
+#plot_nicestuff()
 
 
 
-#plot_accuracies('C:/Users/hasse/Skrivebord/02456_DL_SBERT/test/eval/triplet_evaluation_results.csv')
+plot_accuracies('C:/Users/hasse/Skrivebord/02456_DL_SBERT/test/eval/triplet_evaluation_results.csv')

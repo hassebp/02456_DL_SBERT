@@ -120,31 +120,24 @@ def search_articles(query, model, corpus_embeddings, corpus_ids, top_k=5):
     user_input = preprocess_text(query)
     query_embedding = model.encode(user_input, convert_to_tensor=True)
     query_embedding = query_embedding.to(corpus_embeddings.device)
-    #print(corpus_embeddings.shape)
-    #query_embedding = query_embedding.squeeze(0)
+    
     # Compute cosine similarities
- 
     cos_scores = util.cos_sim(query_embedding, corpus_embeddings)[0]
-    distances = [euclidean(query_embedding, validation_embedding) for validation_embedding in corpus_embeddings]
-    # Reshape distances to a 2D array (required by StandardScaler)
-    #mean = numpy.mean(distances)
-    #std = numpy.std(distances)
+    distances = [euclidean(query_embedding, validation_embedding) for validation_embedding in corpus_embeddings] 
     maxd = numpy.max(distances)
-    #mind = numpy.min(distances)
+   
    
     top_indices = numpy.argsort(distances)[:5]
    
     top_distances = [distances[i] for i in top_indices]
-    top_results = torch.topk(cos_scores, k=top_k)
-   #pos_key = corpus_embeddings[int(top_results[1][0])].numpy()
     
     print("\nTop {} most similar articles in the corpus:".format(top_k))
     for score, idx in zip(top_distances, top_indices):
+        print(idx)
         title, url = get_info(corpus_ids[idx])
-        #score = (score - mean) / std
+    
         score = 1 - (score - 0) / (maxd - 0)
         
-        #score = jaccard_custom(pos_key, corpus_embeddings[int(idx)].numpy())
         print("Title: {} \n (Score: {:.4f}) \n url: {} \n".format(title, score, url))
 
 

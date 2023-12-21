@@ -118,11 +118,11 @@ def generate_pos_neg(filename):
                         int(id_low): float(value_low)
                     })
                 
-            """for id_high, value_high in zip(ids_high, values_high):
+            for id_high, value_high in zip(ids_high, values_high):
                 sub_data['pos'].extend([int(id_high)])
                 jacc_custom_scores_rows.update({
                         int(id_high): float(value_high)
-                    })"""
+                    })
             #sub_data['pos'].extend([int(id)])
             
             jacc_custom_scores[int(qid)] = jacc_custom_scores_rows

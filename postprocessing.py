@@ -25,7 +25,7 @@ def get_info(corpus_id):
     """
     root_path = os.getcwd()
     mapping_p_q = {}        #dict in the format: query_id -> query. Stores all training keywords
-    keywords_filepath = os.path.join(root_path, 'data/test/test_keywords.csv')
+    keywords_filepath = os.path.join(root_path, 'data/keywords.csv')
 
     with open(keywords_filepath, 'r', encoding='utf8') as fIn:
         for line in fIn:
@@ -37,7 +37,7 @@ def get_info(corpus_id):
     
    
     queries = {}        #dict in the format: query_id -> query. Stores all training queries
-    queries_filepath = os.path.join(root_path, 'data/test/test_queries.csv')
+    queries_filepath = os.path.join(root_path, 'data/queries.csv')
 
     with open(queries_filepath, 'r', encoding='utf8') as fIn:
         for line in fIn:
@@ -50,7 +50,7 @@ def get_info(corpus_id):
        
     
     url_list = {}
-    with open(os.path.join(root_path, 'generic_filename_20231114T202027.csv'), 'r') as file:
+    with open(os.path.join(root_path, 'urls.csv'), 'r') as file:
         for line in file:
             id, url = line.strip().split(",")
             id = int(id)
