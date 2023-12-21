@@ -205,7 +205,7 @@ with gzip.open(hard_negatives_filepath, 'rt') as fIn:
                     if negs_added >= num_negs_per_system:
                         break
                     
-        if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):
+        if args.use_all_queries or (len(pos_pids) > 0 and len(neg_pids) > 0):   
             train_queries[data['qid']] = {'qid': data['qid'], 'query': queries[data['qid']], 'pos': pos_pids, 'neg': neg_pids}
                 
 

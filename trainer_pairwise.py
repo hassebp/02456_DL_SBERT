@@ -120,12 +120,12 @@ class MSMARCODataset(Dataset):
 
 
     def __len__(self):
-        return len(self.corpus) ## Try multiplying with 50 future
+        return len(self.corpus) 
 
 # For training the SentenceTransformer model, we need a dataset, a dataloader, and a loss used for training.
 train_dataset = MSMARCODataset(corpus=corpus, ce_scores=ce_scores)
 train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size, drop_last=True)
-train_loss = losses.CosineSimilarityLoss(model=model)
+train_loss = losses.MarginMSELoss(model=model)
 
 
 ### Load and prepare validation
