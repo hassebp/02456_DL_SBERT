@@ -87,9 +87,9 @@ def generate_pos_neg(filename):
             jacc_custom_scores_rows = {}
             
             ### Adding the pos
-            """jacc_custom_scores_rows.update({
+            jacc_custom_scores_rows.update({
                         int(id): float(jaccard_custom(keywords,keywords))
-                    })"""
+                    })
             
             evals = []
             for rand_row in random_rows:
@@ -118,11 +118,11 @@ def generate_pos_neg(filename):
                         int(id_low): float(value_low)
                     })
                 
-            for id_high, value_high in zip(ids_high, values_high):
+            """for id_high, value_high in zip(ids_high, values_high):
                 sub_data['pos'].extend([int(id_high)])
                 jacc_custom_scores_rows.update({
                         int(id_high): float(value_high)
-                    })
+                    })"""
             #sub_data['pos'].extend([int(id)])
             
             jacc_custom_scores[int(qid)] = jacc_custom_scores_rows
@@ -191,8 +191,6 @@ def generate_pos_neg_pairwise(filename):
             
             jacc_custom_scores[int(pid)] = jacc_custom_scores_rows
        
-            
-  
    
     jacc_scores_path = os.path.join(os.getcwd(), 'datav2/jaccard_scores.pkl')
     jacc_scores_paths = os.path.join(os.getcwd(), 'datav2/jaccard_scores.json')
@@ -208,104 +206,3 @@ def generate_pos_neg_pairwise(filename):
 generate_pos_neg(filepath_keywords)
 
 
-
-
-
-def generate_ce_scores(corpus, query):
-
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModel.from_pretrained(args.model_name)
-
-    def get_embedding(text):
-        tokens = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
-        with torch.no_grad():
-            outputs = model(**tokens)
-        return outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
-
-    def compute_similarity_score(embedding1, embedding2):
-        return 1 - cosine(embedding1, embedding2)
-
-    
-    
-    data = []
-    ce_scores = {}
-    with open(corpus, 'r', newline='',encoding='utf-8') as ce_scores_file, open(query, 'r', newline='',encoding='utf-8') as queries_file:
-        abstracts = list(csv.reader(ce_scores_file))
-        titles = list(csv.reader(queries_file))
-        
-        for abstract, title in tqdm(zip(abstracts, titles), total=len(abstracts), desc="Processing Rows"):
-            a = [item.split(';') for item in abstract]
-            b = [item.split(';') for item in title]
-            abs_id, corpus = a[0][0], a[0][1]
-            qid, query = b[0][0], b[0][1]
-           
-          
-            sub_data = {'qid': int(qid),
-                        'pos': [],
-                        'neg': {}
-            }
-            
-            random_rows = [r for r in random.sample(list(abstracts), args.max_nb_scores)]
-         
-            ce_scores_rows = {}
-
-            evals = []
-            for rand_row in random_rows:
-                c = [item.split(';') for item in rand_row]
-                rand_abs_id, rand_corpus = c[0][0], c[0][1]
-             
-                embedding1 = get_embedding(corpus)
-                embedding2 = get_embedding(rand_corpus)
-
-                similarity_score = compute_similarity_score(embedding1, embedding2)
-              
-                evals.append({int(rand_abs_id): float(similarity_score)})
-         
-            
-            
-            top_two = heapq.nlargest(2, evals, key=lambda x: list(x.values())[0])
-            list_lows = [d for d in evals if d not in top_two]
-            ids_low = [int(list(d.keys())[0]) for d in list_lows][:25]
-            values_low = [float(list(d.values())[0]) for d in list_lows]
-            ids_high = [int(list(d.keys())[0]) for d in top_two]
-            values_high = [float(list(d.values())[0]) for d in top_two]
-            
-            for id_low, value_low in zip(ids_low, values_low):
-                add_numbers_to_neg(sub_data, 'jaccard_custom', [int(id_low)])
-                ce_scores_rows.update({
-                        int(id_low): float(value_low)
-                    })
-                
-            for id_high, value_high in zip(ids_high, values_high):
-                sub_data['pos'].extend([int(id_high)])
-                ce_scores_rows.update({
-                        int(id_high): float(value_high)
-                    })
-            
-            ce_scores[int(qid)] = ce_scores_rows
-            data.append(sub_data)
-    
-    hard_negs_path = os.path.join(os.getcwd(), 'data/hard_negs.json')
-    hard_negs_path_gz = os.path.join(os.getcwd(), 'data/hard_negs.jsonl.gz')
-    jacc_scores_path = os.path.join(os.getcwd(), 'data/jaccard_scores.pkl')
-    jacc_scores_paths = os.path.join(os.getcwd(), 'data/jaccard_scores.json')
-    
-    with gzip.open(hard_negs_path_gz, 'wt') as jsonl_gz_file:
-        for my_dict in data:
-            json_line = json.dumps(my_dict)
-            jsonl_gz_file.write(json_line + '\n')
-    
-    with open(hard_negs_path, 'w') as json_file:
-        json.dump(data, json_file)
-
-    # Open the file in binary read mode and load the dictionary
-    with open(jacc_scores_path, 'wb') as pickle_file:
-        pickle.dump(ce_scores, pickle_file)
-    
-    with open(jacc_scores_paths, 'w') as json_file:
-        json.dump(ce_scores, json_file)
-           
-
-#generate_pos_neg(filepath_keywords)
-
-#generate_ce_scores(filepath_corpus,filepath_query)

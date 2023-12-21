@@ -121,7 +121,7 @@ def split_data(data, split_ratio, seed=12345):
 
     return train_data, valid_data, test_data
 
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 def process_articles(urls, folder, target_article_count, save_interval):
     """

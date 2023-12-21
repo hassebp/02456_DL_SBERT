@@ -31,7 +31,8 @@ corpus_max_size = int(sys.argv[2])*1000 if len(sys.argv) >= 3 else 0
 model = SentenceTransformer(model_name)
 
 ### Data files
-data_folder = 'datav2'
+data_folder = sys.argv[2]
+
 os.makedirs(data_folder, exist_ok=True)
 
 collection_filepath = os.path.join(data_folder, 'valid/valid_corpus.csv')
